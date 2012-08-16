@@ -18,12 +18,6 @@ use Conform::Action;
 =head1   METHODS
 
 
-=item    id
-
-=cut
-
-has 'id',      ( is => 'rw' );
-
 =item    name
 
 =cut

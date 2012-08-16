@@ -10,7 +10,6 @@ BEGIN {
 }
 
 can_ok 'Conform::Action', 'new';
-can_ok 'Conform::Action', 'id';
 can_ok 'Conform::Action', 'name';
 can_ok 'Conform::Action', 'desc';
 can_ok 'Conform::Action', 'execute';
