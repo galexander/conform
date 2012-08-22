@@ -30,3 +30,7 @@ Perhaps we should call these actions?
 The second, is functions like Httpd => {}, which are called with i_isa_fetchall or i_isa_merge. We need to run the handler for this only once, and after we are sure no more Httpd => {} stanzas will be added.
 
 Perhaps we should call these plugins modules?
+
+---
+
+Another thought, perhaps the loading and handling of one off primitives should be provided by a 'plugin'. Then there is no special case, every plugin is pushed on to the queue. This really needs more thought ;)
