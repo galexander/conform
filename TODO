@@ -1,0 +1,36 @@
+This is sort of a plan of whats to come...
+
+Conform::Queue - job queue object, we should have a wax on and wax off (rollback) queue
+Conform::Queue::Base - basic queue functions
+
+Conform::Role::Action - base for actions, roles are good
+Conform::Action::* - all the actions, like File_install and stuff
+Conform::Primitive::* - maybe, put primitive functions in here? So actions are just a thin later between the queue and primitives? maybe this is better as Conform::Utils?
+
+Conform::PluginBase - maybe,base for plugins
+Conform::Plugin::* - maybe,plugins 
+
+These need  _____/ Conform::Registrar - where actions register themselves
+some thought     \ Conform::Dispatcher - maybe, runs the queue?
+
+Conform::Log - what its name implies
+
+Conform::IdentifyHardware - Maybe this should be Conform::Discovery::Hardware and Conform::Discovery::Other
+
+
+
+----
+
+There is definitely a difference between lower level primitive functions and higher level functions. The division is quite clear though im not sure how we should best provide a framework for the two.
+
+The first, is functions like File_install => [], which provide a discrete work unit with in each key value pair. Basically each time the key occurs, then function can be safely run with the arguments attached.
+
+Perhaps we should call these actions?
+
+The second, is functions like Httpd => {}, which are called with i_isa_fetchall or i_isa_merge. We need to run the handler for this only once, and after we are sure no more Httpd => {} stanzas will be added.
+
+Perhaps we should call these plugins modules?
+
+---
+
+Another thought, perhaps the loading and handling of one off primitives should be provided by a 'plugin'. Then there is no special case, every plugin is pushed on to the queue. This really needs more thought ;)
