@@ -3,7 +3,7 @@ This is sort of a plan of whats to come...
 Conform::Queue - job queue object, we should have a wax on and wax off (rollback) queue
 Conform::Queue::Base - basic queue functions
 
-Conform::ActionBase - base for actions (maybe we shold use roles instead?)
+Conform::Role::Action - base for actions, roles are good
 Conform::Action::* - all the actions, like File_install and stuff
 Conform::Primitive::* - maybe, put primitive functions in here? So actions are just a thin later between the queue and primitives? maybe this is better as Conform::Utils?
 
