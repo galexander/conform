@@ -1,14 +1,21 @@
-package Conform::Action;
-use strict;
-use Mouse;
+package Conform::Role::Action;
+
+use Mouse::Role;
+
+use Conform::Dispatcher 'register';
 
 =head1  NAME
 
-Conform::Action
+Conform::Role::Action
 
 =head1  SYNSOPSIS
 
-use Conform::Action;
+ use Mouse;
+ with qw/ Conform::Role::Action /;
+
+ sub foo {}
+
+ __PACKAGE__->register();
 
 =head1  DESCRIPTION
 
@@ -30,25 +37,17 @@ has 'name',    ( is => 'rw', isa => 'Str', required => 1,  );
 
 has 'desc',    ( is => 'rw' );
 
-=item    code
+=item    registration
+
+FIXME: maybe a better name for this?
 
 =cut
 
-has 'code',    ( is => 'rw', isa => 'CodeRef' );
-
-
-sub execute {
-    my $self = shift;
-
-    my $code = $self->code;
-
-    $code ||= sub { print STDERR "@{[ $self->name ]} is not implemented" };
-
-    $code->($self, @_)
-}
-
+with 'registration';
 
 =head1  SEE ALSO
+
+ L<Conform>
 
 =head1  AUTHOR
 
