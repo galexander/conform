@@ -27,6 +27,8 @@ my @log_methods = qw(trace
                      emergency);
 
 
+Conform::Logger->set('Stderr');
+
 use Conform::Logger qw($log);
 
 ok $log, 'Log is defined';

@@ -25,7 +25,10 @@ extends 'Log::Any';
 
 use Log::Any::Adapter;
 
-Log::Any::Adapter->set('Stderr');
+sub set {
+    shift if $_[0] eq __PACKAGE__;
+    Log::Any::Adapter->set(@_);
+}
 
 =head1  SEE ALSO
 
