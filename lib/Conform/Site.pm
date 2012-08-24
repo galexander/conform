@@ -80,8 +80,8 @@ sub init {
     $self->root([ map { s!^.*/!!; $_ } @$files ]);
 
     $self->_load_nodes;
-
 }
+
 
 #TODO: site metadata should tell me where to load nodes from 
 #TODO: site should also specify who can override what
