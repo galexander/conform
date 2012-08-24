@@ -1,3 +1,5 @@
+Maybe use Mo[ou]seX::Object::Pluggable, MooseX::Role::Pluggable?
+
 This is sort of a plan of whats to come...
 
 Conform::Queue - job queue object, we should have a wax on and wax off (rollback) queue
@@ -8,7 +10,7 @@ Conform::Action::* - all the actions, like File_install and stuff
 Conform::Primitive::* - maybe, put primitive functions in here? So actions are just a thin later between the queue and primitives? maybe this is better as Conform::Utils?
 
 Conform::PluginBase - maybe,base for plugins
-Conform::Plugin::* - maybe,plugins 
+Conform::Plugin::* - maybe,plugins
 
 These need  _____/ Conform::Registrar - where actions register themselves
 some thought     \ Conform::Dispatcher - maybe, runs the queue?
