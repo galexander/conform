@@ -1,5 +1,4 @@
 package Conform::Logger;
-use strict;
 use Mouse;
 
 our $VERSION = $Conform::VERSION;
