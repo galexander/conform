@@ -1,26 +1,25 @@
-package Conform::Task;
+package Conform::Role::Task;
 use strict;
 use Mouse;
 
 =head1  NAME
 
-Conform::Task
+Conform::Role::Task
 
 =head1  SYNSOPSIS
 
-use Conform::Task;
+use Conform::Role::Task;
 
 =head1  DESCRIPTION
 
 
 =cut
 
-extends 'Conform::Executable';
-
+extends 'Conform::Role::Executable';
 
 =head1  SEE ALSO
 
-L<Conform::Executable>
+L<Conform::Role::Executable>
 
 =head1  AUTHOR
 
