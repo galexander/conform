@@ -1,6 +1,5 @@
 package Conform::Role::Task;
-use strict;
-use Mouse;
+use Mouse::Role;
 
 =head1  NAME
 
