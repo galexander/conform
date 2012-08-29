@@ -2,6 +2,7 @@ package Conform::Site;
 use strict;
 use Mouse;
 use Safe;
+use Carp qw(croak);
 use Data::Dumper;
 
 use Conform::Logger qw($log);
@@ -18,56 +19,48 @@ use Conform::Site;
 
 =cut
 
-=head1   METHODS
-
+=head1   ACCESSOR METHODS
 
 =head2    uri
 
 =cut
 
-has 'uri',     ( is => 'rw', isa => 'Str' );
+has 'uri' => (
+    is  => 'rw',
+    isa => 'Str'
+);
 
 =head2    version
 
 =cut
 
-has 'version', ( is => 'rw', isa => 'Str' );
+has 'version' => (
+    is  => 'rw',
+    isa => 'Str'
+);
 
 =head2   root
 
 =cut
 
-has 'root',    ( is => 'rw', isa => 'ArrayRef' );
+has 'root' => (
+    is  => 'rw',
+    isa => 'ArrayRef'
+);
 
 =head2  nodes
 
 =cut
 
-has 'nodes',   ( is => 'rw', isa => 'HashRef' );
+has 'nodes' => (
+    is  => 'rw',
+    isa => 'HashRef'
+);
 
-=head2  actions
-
-=cut
-
-has 'actions',   ( is => 'rw', isa => 'HashRef' );
-
-=head2  tasks
-
-=cut
-
-has 'tasks',   ( is => 'rw', isa => 'HashRef' );
-
-=head2  vars
-
-=cut
-
-has 'vars',   ( is => 'rw', isa => 'HashRef' );
-
-=head2 classes
-
-=cut
-
-has 'classes',   ( is => 'rw', isa => 'HashRef' );
+sub BUILD {
+    my $self = shift;
+    $self->init;
+}
 
 sub init {
     my $self = shift;
@@ -76,10 +69,73 @@ sub init {
     my $path = $self->uri;
 
     my $files = $self->dir_list($path);
-
+    
     $self->root([ map { s!^.*/!!; $_ } @$files ]);
 
     $self->_load_nodes;
+}
+
+=head2  walk
+
+=cut
+
+sub _walk;
+sub _walk {
+    my ($nodes, $key, $code, $seen) = @_;
+    $log->trace("_walk $key");
+
+    $seen ||= {};
+
+    if($seen->{$key}++) {
+        $log->warn("seen key $key");
+        return;
+    }
+
+    my $node = $nodes->{$key};
+    if(!defined $node) {
+        $log->debug("key ($key) not found");
+        return;
+    }
+
+    my $isa = $node->{ISA};
+    if (defined $isa) {
+        for my $class ((ref $isa eq 'HASH')
+                        ? (sort keys %$isa)
+                        : (ref $isa eq 'ARRAY')
+                            ? (sort @$isa)
+                            : ($isa)) {
+
+            _walk $nodes, $class, $code, $seen;
+
+        }
+    }
+
+    $code->($key, $node);
+    
+}
+
+sub walk;
+sub walk {
+    my $self    = shift;
+    my $from    = shift;
+    my $code    = shift;
+
+    my $nodes   = $self->nodes;
+    
+    if (defined $from) {
+        croak "$from not found in \$site->@{[$self->uri]}"
+            unless exists $nodes->{$from};
+
+        $log->debug("walking nodes from $from");
+        _walk $nodes, $from, $code, {};
+
+    } else {
+        $log->debug("walking all nodes");
+        for my $node (keys %$nodes) {
+            $self->walk($from, $code);
+        }
+    }
+
 }
 
 
@@ -165,6 +221,7 @@ sub _load_nodes_perl {
     }
     return undef;
 }
+
 
 =head1  SEE ALSO
 
