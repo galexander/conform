@@ -1,26 +1,25 @@
-package Conform::Action;
-use strict;
-use Mouse;
+package Conform::Role::Action;
+use Mouse::Role;
 
 =head1  NAME
 
-Conform::Action
+Conform::Role::Action
 
 =head1  SYNSOPSIS
 
-use Conform::Action;
+use Conform::Role::Action;
 
 =head1  DESCRIPTION
 
 
 =cut
 
-extends 'Conform::Executable';
+extends 'Conform::Role::Executable';
 
 
 =head1  SEE ALSO
 
-L<Conform::Executable>
+L<Conform::Role::Executable>
 
 =head1  AUTHOR
 
