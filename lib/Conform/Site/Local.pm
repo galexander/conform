@@ -9,6 +9,8 @@ with    'Conform::Site::API';
 use IO::Dir;
 use IO::File;
 
+## FIXME just use File::Slurp ?
+
 use Conform::Logger qw($log);
 
 =head1  NAME

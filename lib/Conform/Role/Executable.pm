@@ -1,15 +1,14 @@
-package Conform::Executable;
-use strict;
-use Mouse;
+package Conform::Role::Executable;
+use Mouse::Role;
 use Conform::Logger qw($log);
 
 =head1  NAME
 
-Conform::Executable
+Conform::Role::Executable
 
 =head1  SYNSOPSIS
 
-use Conform::Executable;
+use Conform::Role::Executable;
 
 =head1  DESCRIPTION
 

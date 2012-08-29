@@ -17,7 +17,6 @@ use Conform::Config;
 
 extends 'Config::Any';
 
-
 =head1  SEE ALSO
 
 L<Config::Any>
