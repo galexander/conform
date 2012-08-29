@@ -14,7 +14,7 @@ use Conform::Role::Action;
 
 =cut
 
-extends 'Conform::Role::Executable';
+with 'Conform::Role::Executable';
 
 
 =head1  SEE ALSO
