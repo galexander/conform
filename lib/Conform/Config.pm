@@ -1,5 +1,4 @@
 package Conform::Config;
-use strict;
 use Mouse;
 
 =head1  NAME
@@ -16,7 +15,6 @@ use Conform::Config;
 =cut
 
 extends 'Config::Any';
-
 
 =head1  SEE ALSO
 
