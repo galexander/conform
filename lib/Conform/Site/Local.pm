@@ -21,25 +21,11 @@ use Conform::Site::Local;
 
 =head1  DESCRIPTION
 
-
 =cut
 
 =head1  CONSTRUCTOR
 
-=head2  new
-
 =cut
-
-sub new {
-    my $class = shift;
-    $log->debugf("%s->new", $class);
-    my $self = $class->SUPER::new(@_);
-    
-    $self->init();
-
-    return $self;
-}
-
 
 sub dir_list {
     my $self = shift;
@@ -52,13 +38,13 @@ sub dir_list {
 
     my @files;
 
-    for my $file ($dir->read) {
+    for my $file (grep !/^\.{1,2}$/, $dir->read) {
         push @files, $file;
     }
 
     return wantarray
             ?  @files
-            :\ @files;
+            : \@files;
 }
 
 sub file_open {
