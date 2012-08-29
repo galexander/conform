@@ -24,7 +24,7 @@ sub load {
     local $_ = shift;
 
     s{^(local|file)://}{} and do {
-        return Conform::Site::Local->new (uri => $_);
+        return Conform::Site::Local->new(uri => $_);
     };
 
     croak "$_ not implemented";
