@@ -1,6 +1,7 @@
 package Conform::Runtime::Server;
 use strict;
 use Mouse;
+use Net::Domain qw(hostname hostfqdn hostdomain domainname);
 
 =head1  NAME
 
@@ -15,6 +16,21 @@ use Conform::Runtime::Server;
 =cut
 
 extends 'Conform::Runtime';
+
+use parent 'Conform::Runtime';
+
+
+sub BUILD {
+    my $self = shift;
+    $self->name($self->hostname)
+        unless $self->name;
+    $self;
+}
+
+
+sub File_install : Task {
+
+}
 
 =head1  SEE ALSO
 

@@ -1,6 +1,7 @@
 package Conform::Runtime::Server::Linux;
 use strict;
 use Mouse;
+use Conform::Logger qw($log);
 
 =head1  NAME
 
@@ -12,11 +13,9 @@ use Conform::Runtime::Server::Linux;
 
 =head1  DESCRIPTION
 
-
 =cut
 
 extends 'Conform::Runtime::Server';
-
 
 =head1  SEE ALSO
 

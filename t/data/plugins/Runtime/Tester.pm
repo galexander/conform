@@ -14,4 +14,8 @@ sub Bar : Task {
 	print Dumper(\@_);
 }
 
+sub File_install : Action {
+
+}
+
 1;

@@ -1,10 +1,11 @@
 package Conform::Runtime;
 use strict;
+use attributes ();
 use Mouse;
 use Module::Pluggable::Object;
-use attributes ();
-use Conform::Task;
-use Conform::Action;
+use Conform::Role::Task;
+use Conform::Role::Action;
+use Scalar::Util qw(refaddr);
 
 use Conform::Logger qw($log);
 
@@ -22,15 +23,9 @@ use Conform::Runtime;
 
 =head1  CONSTRUCTOR
 
+=head2  BUILD
+
 =cut
-
-sub new {
-    my $plugin = shift;
-    my $self = $plugin->SUPER::new(@_);
-
-    $self->load_plugins;
-    $self;
-}
 
 =head1   ACCESSOR METHODS
 
@@ -39,6 +34,7 @@ sub new {
 =cut
 
 has 'name',    ( is => 'rw' );
+
 
 =head2   data
 
@@ -87,7 +83,11 @@ has 'plugin_search_paths', (
 
 =head1  OBJECT METHODS
 
+=head2  id
+
 =cut
+
+sub id { $_[0]->name }
 
 =head2   execute
 
@@ -212,6 +212,30 @@ EOREQ
     }
 }
 
+sub implements {
+    my $self = shift;
+    my $name = shift;
+
+    return $self->tasks->{$name}   if exists $self->tasks->{$name};
+    return $self->actions->{$name} if exists $self->actions->{$name};
+    undef;
+}
+
+my %attrs = ();
+
+sub MODIFY_CODE_ATTRIBUTES {
+    my ($package, $subref, @attrs) = @_;
+    $attrs{ refaddr $subref } = \@attrs;
+    ();
+}
+
+sub FETCH_CODE_ATTRIBUTES {
+    my ($package, $subref) = @_;
+    my $attrs = $attrs{ refaddr $subref };
+    return @{$attrs || [] };
+}
+
+__PACKAGE__->meta->make_immutable;
 
 =head1  SEE ALSO
 

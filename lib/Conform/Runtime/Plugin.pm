@@ -18,10 +18,6 @@ use Conform::Runtime::Plugin;
 
 =cut
 
-sub type {
-
-}
-
 sub MODIFY_CODE_ATTRIBUTES {
     my ($package, $subref, @attrs) = @_;
     $attrs{ refaddr $subref } = \@attrs;
