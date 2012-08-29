@@ -4,6 +4,8 @@ use Carp qw(croak);
 use Mouse;
 use Conform::Site;
 use Conform::Logger qw($log);
+use Data::Dump qw(dump);
+use Conform::Task::Queue;
 
 =head1  NAME
 
@@ -13,9 +15,10 @@ Conform::Agent
 
 use Conform::Agent;
 
-my $agent = Conform::Agent->new
-            ( runtime => $runtime, site => $site)
-
+my $agent = Conform::Agent->new(
+     runtime => $runtime,
+     site    => $site
+);
 
 =head1  DESCRIPTION
 
@@ -52,41 +55,120 @@ A Conform::Site is responsible for providing the defintion for
 
 =head1  CONSTRUCTOR
 
-=head2  new
+=head2 BUILD
 
 =cut
 
-sub new {
-    my $class = shift;
-    my $proto = ref ($class) || $class || __PACKAGE__;
-    my $self  = $proto->SUPER::new(@_);
-
-    $self->runtime
-           or croak "Runtime not specified";
-
-    $self->site
-            or croak "site not specified";
-
+sub BUILD {
+    my $self = shift;
     $self->init;
-
     $self;
 }
 
 
-=head1  METHDOS
+=head1  ACCESSOR METHDOS
 
 =head2  runtime
 
 =cut
 
-has 'runtime' => ( is => 'rw', isa => 'Conform::Runtime');
-
+has 'runtime' => (
+    is  => 'rw',
+    isa => 'Conform::Runtime',
+    required => 1,
+);
 
 =head2  site
 
 =cut
 
-has 'site'   =>  ( is => 'rw', isa => 'Conform::Site');
+has 'site' => (
+    is  => 'rw',
+    isa => 'Conform::Site',
+    required => 1,
+);
+
+=head2  tasks
+
+=cut
+
+has 'tasks' => (
+    is => 'rw',
+    isa => 'Conform::Task::Queue',
+    default => sub { Conform::Task::Queue->new() }
+);
+
+has 'unscheduled_tasks' => (
+    is => 'rw',
+    isa => 'Conform::Task::Queue',
+    default => sub { Conform::Task::Queue->new() }
+);
+
+
+=head2  init
+
+=cut
+
+sub init {
+    my $self = shift;
+    
+    my $runtime = $self->runtime;
+    my $site    = $self->site;
+
+    $self->compile_task_queue;
+
+}
+
+sub schedule {
+    my $self = shift;
+    my $task = shift;
+    my $data = shift;
+    $log->debug("scheduling task @{[$task]} -> @{[ dump($data) ]}");
+
+    my $tasks   = $self->tasks;
+    my $runtime = $self->runtime;
+
+    $log->debug("determining if @{[ ref $runtime ]} implements $task");
+    if ($runtime->implements ($task)) {
+        $log->debug("@{[ ref $runtime ]} implements $task");
+
+    }
+
+}
+
+sub identify_tasks {
+    my $self = shift;
+    my $name = shift;
+    my $hash = shift;
+
+    $log->debug("identify_tasks for $name");
+    for my $tag (grep !/ISA/, keys %$hash) {
+        my $value = $hash->{$tag};
+        $log->debug("identifying task $tag");
+
+        $self->schedule($tag => $value);
+        
+    }
+}
+
+sub compile_task_queue {
+    my $self = shift;
+    $log->debug("compile_task_queue");
+
+    my $site    = $self->site;
+    my $runtime = $self->runtime;
+
+    # collect all tasks
+
+    $site->walk($runtime->id,  sub { $self->identify_tasks (@_) });
+
+}
+
+sub conform {
+    my $self = shift;
+
+
+}
 
 
 =head1  SEE ALSO
