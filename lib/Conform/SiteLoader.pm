@@ -17,10 +17,12 @@ use Conform::SiteLoader;
 
 =cut
 
+use Conform::Site::Local;
+
 sub load {
     shift if $_[0] eq __PACKAGE__;
     local $_ = shift;
-    
+
     s{^(local|file)://}{} and do {
         return Conform::Site::Local->new (uri => $_);
     };
