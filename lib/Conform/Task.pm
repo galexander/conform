@@ -1,8 +1,8 @@
 package Conform::Task;
 use strict;
-use Mouse;
+use Mouse::Role;
 
-extends 'Conform::Action';
+with 'Conform::Directive';
 
 =head1  NAME
 
@@ -12,74 +12,57 @@ Conform::Task
 
 use Conform::Task;
 
+Task 'CVS';
+
+use Conform::Action 'File_install';
+use Conform::Action 'User';
+use Conform::Action 'Package';
+
+Begin {
+    Package "cvs";
+    User "cvs" => {
+        gid => 100,
+    };
+};
+
+Configure {
+
+};
+
+Execute {
+
+};
+
+End {
+
+};
+
+
 =head1  DESCRIPTION
 
-
 =cut
-
-
 
 =head1   METHODS
 
 
 =head2   name
 
-=cut
-
-has 'name',    ( is => 'rw' );
+L<Conform::Directive::name>
 
 =head2   desc
 
-=cut
-
-has 'desc',    ( is => 'rw' );
-
-=head2   impl
+L<Conform::Directive::desc>
 
 =cut
-
-has 'impl',    ( is => 'rw' );
-
-=head2   requires
-
-=cut
-
-has 'requires', ( is => 'rw' );
-
-=head2   provides
-
-=cut
-
-has 'provides', ( is => 'rw' );
-
-=head2   actions
-
-=cut
-
-has 'actions', ( is => 'rw' );
-
-=head2   configure
-
-=cut
-
-has 'configure', ( is => 'rw' );
-
-=head2   begin
-
-=cut
-
-has 'begin',   ( is => 'rw' );
-
-=head2   end
-
-=cut
-
-has 'end',     ( is => 'rw' );
-
 
 =head1  SEE ALSO
 
+=over
 
+=item   *
+L<Conform::Directive>
+
+=back
 
 =head1  AUTHOR
 

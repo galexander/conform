@@ -1,6 +1,7 @@
 package Conform::Action;
-use strict;
-use Mouse;
+use Mouse::Role;
+
+with 'Conform::Directive';
 
 =head1  NAME
 
@@ -12,68 +13,27 @@ use Conform::Action;
 
 =head1  DESCRIPTION
 
-
 =cut
-
-
 
 =head1   METHODS
 
-
 =head2   name
 
-=cut
+L<Conform::Directive::name>
 
-has 'name',    ( is => 'rw' );
+=cut
 
 =head2   desc
 
-=cut
-
-has 'desc',    ( is => 'rw' );
-
-=head2   impl
+L<Conform::Directive::desc>
 
 =cut
 
-has 'impl',    ( is => 'rw' );
-
-=head2   requires
-
-=cut
-
-has 'requires', ( is => 'rw' );
-
-=head2   provides
-
-=cut
-
-has 'provides', ( is => 'rw' );
-
-=head2   configure
-
-=cut
-
-has 'configure', ( is => 'rw' );
-
-=head2   begin
-
-=cut
-
-has 'begin',   ( is => 'rw' );
-
-=head2   end
-
-=cut
-
-has 'end',     ( is => 'rw' );
-
-sub execute {}
-
+requires 'execute';
 
 =head1  SEE ALSO
 
-
+L<Conform::Directive>
 
 =head1  AUTHOR
 
