@@ -1,13 +1,13 @@
-package Conform::Util::ListIterator;
+package Conform::Role::ListIterator;
 use Mouse::Role;
 
 =head1  NAME
 
-Conform::Util::ListIterator
+Conform::Role::ListIterator
 
 =cut
 
-with 'Conform::Util::Iterator';
+with 'Conform::Role::Iterator';
 
 requires 'add';
 requires 'has_next';

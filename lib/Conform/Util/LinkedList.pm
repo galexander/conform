@@ -17,8 +17,8 @@ Conform::Util::LinkedList
 
 =cut
 
-with 'Conform::Util::List';
-with 'Conform::Util::Queue';
+with 'Conform::Role::List';
+with 'Conform::Role::Queue';
 
 # private subs
 sub _to_array;

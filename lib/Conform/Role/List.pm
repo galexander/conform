@@ -1,10 +1,10 @@
-package Conform::Util::List;
+package Conform::Role::List;
 use strict;
 use Mouse::Role;
 
 =head1	NAME
 
-Conform::Util::List
+Conform::Role::List
 
 =cut
 

@@ -8,7 +8,7 @@ Conform::Util::ListElement
 
 =cut
 
-with 'Conform::Util::Comparable';
+with 'Conform::Role::Comparable';
 
 has 'data' => (
     is       => 'rw',
