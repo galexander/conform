@@ -1,4 +1,4 @@
-package Conform::Util::Iterator;
+package Conform::Role::Iterator;
 use Mouse::Role;
 
 =head1	NAME

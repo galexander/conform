@@ -1,4 +1,4 @@
-package Conform::Util::Comparable;
+package Conform::Role::Comparable;
 use strict;
 use Mouse::Role;
 
