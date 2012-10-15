@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+# This is a simple implementation of the whole thing, mainly for reference/fun
+
+use strict;
+use warnings;
+
+our %m;
+
+my %func = (
+    Print => sub { print @_; return 1 },
+);
+
+sub scan {
+
+   my $in = shift;
+   my $conf = shift;
+
+   for my $k (sort keys %$conf) {
+
+      if ($k eq 'ISA') {
+          # fixme
+          next;
+      }
+
+      if ($func{$k}) {
+          print "found: $k\n";
+          push @$in, { func => $func{$k}, arg => $conf->{$k} };
+      }
+
+    }  
+}
+
+sub run {
+
+  my $in = shift;
+  my $out = shift;
+
+  for my $i (@$in) {
+
+    $i->{func}->( $i->{arg} );
+
+  }
+
+  return 1
+
+}
+
+require '/tmp/m.cfg'; # whatever, just populate m
+
+{
+  my @in;my @out;
+  scan(\@in,\%m);
+  eval {  run(\@in,\@out); 1};
+  if ($@) { run(\@out) }
+ 
+}
+
+print "All done!\n";
