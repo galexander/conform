@@ -1,4 +1,4 @@
-package Conform::Util::LinkedListIterator;
+package Conform::Role::LinkedListIterator;
 use Mouse::Role;
 
 =head1	NAME
