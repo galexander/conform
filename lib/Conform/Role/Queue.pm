@@ -1,4 +1,4 @@
-package Conform::Util::Queue;
+package Conform::Role::Queue;
 use Mouse::Role;
 
 =head1	NAME
