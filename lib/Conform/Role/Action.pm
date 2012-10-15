@@ -1,4 +1,4 @@
-package Conform::Action;
+package Conform::Role::Action;
 use Mouse::Role;
 
 with 'Conform::Directive';
@@ -9,7 +9,7 @@ Conform::Action
 
 =head1  SYNSOPSIS
 
-use Conform::Action;
+use Conform::Role::Action;
 
 =head1  DESCRIPTION
 

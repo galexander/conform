@@ -3,7 +3,7 @@ use Mouse::Role;
 
 =head1	NAME
 
-Conform::Util::Queue
+Conform::Role::Queue
 
 =cut
 

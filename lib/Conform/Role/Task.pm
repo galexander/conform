@@ -1,8 +1,8 @@
-package Conform::Task;
+package Conform::Role::Task;
 use strict;
 use Mouse::Role;
 
-with 'Conform::Directive';
+with 'Conform::Role::Directive';
 
 =head1  NAME
 
@@ -60,7 +60,7 @@ L<Conform::Directive::desc>
 =over
 
 =item   *
-L<Conform::Directive>
+L<Conform::Role::Directive>
 
 =back
 

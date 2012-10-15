@@ -1,4 +1,4 @@
-package Conform::Directive;
+package Conform::Role::Directive;
 use Mouse::Role;
 
 =head1  NAME
@@ -10,7 +10,7 @@ Conform::Directive
 package Conform::Task;
 use Mouse::Role;
 
-with 'Conform::Directive';
+with 'Conform::Role::Directive';
 
 =head1  DESCRIPTION
 

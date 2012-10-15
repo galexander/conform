@@ -3,7 +3,7 @@ use Mouse::Role;
 
 =head1	NAME
 
-Conform::Util::Iterator
+Conform::Role::Iterator
 
 =cut
 

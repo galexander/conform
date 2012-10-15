@@ -3,11 +3,11 @@ use Mouse::Role;
 
 =head1	NAME
 
-Conform::Util::LinkedListIterator
+Conform::Role::LinkedListIterator
 
 =cut
 
-with 'Conform::Util::ListIterator';
+with 'Conform::Role::ListIterator';
 
 
 =head1  CONSTRUCTOR
