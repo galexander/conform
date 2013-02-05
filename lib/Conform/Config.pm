@@ -11,7 +11,6 @@ use Conform::Config;
 
 =head1  DESCRIPTION
 
-
 =cut
 
 extends 'Config::Any';
