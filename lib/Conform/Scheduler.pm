@@ -1,10 +1,34 @@
 package Conform::Scheduler;
+=head1  NAME
+
+Conform::Scheduler
+
+=head1  SYNOPSIS
+
+    use Conform::Scheduler;
+    
+    my $scheduler = Conform::Scheduler->new();
+
+    $scheduler->schedule($action);
+
+    while ($scheduler->actions) {
+        $scheduler->run();
+    }
+
+
+=head1  DESCRIPTION
+
+Generic 'Conform::Action' scheduler/executor with dependency resolution
+
+=head1  METHODS
+    
+=cut
+
 use Mouse;
 use Conform::Queue;
 use Data::Dumper;
-use Conform::Debug qw(Debug);
+use Conform::Debug qw(Debug Trace);
 
-#$Conform::Debug::DEBUG++;
 $Data::Dumper::Deparse++;
 
 has 'pending'   => (
@@ -53,16 +77,18 @@ sub actions {
 Schedule an action to be executed.
 Executes any 'waiting' actions prior to being scheduled.
 
+=back
+
 =cut
 
 
-sub schedule { Debug "schedule(@{[Dumper($_[1])]})";
+sub schedule { Trace "schedule(@{[Dumper($_[1])]})";
     my $self   = shift;
     my $action = shift;
 
     $self->pending->enqueue($action);
 
-    Debug "schedule - pending = %d, waiting = %d, completed = %d, runnable = %d\n",
+    Trace "schedule - pending = %d, waiting = %d, completed = %d, runnable = %d\n",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -82,7 +108,7 @@ will be run.
 
 =cut
 
-sub wait { Debug "wait(@{[ Dumper ($_[1]) ]}";
+sub wait { Trace "wait(@{[ Dumper ($_[1]) ]}";
     my $self   = shift;
     my $action = shift;
     $self->waiting->enqueue($action);
@@ -98,7 +124,7 @@ Find all actions 'waiting' for this action.
 
 =cut
 
-sub find_waiting { Debug "find_waiting(@{[Dumper($_[1])]})";
+sub find_waiting { Trace "find_waiting(@{[Dumper($_[1])]})";
     my $self   = shift;
     my $action = shift;
 
@@ -139,13 +165,13 @@ an action dependency.
 
 =cut
 
-sub find_dependency { Debug "find_dependency(@{[Dumper($_[1])]})";
+sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
     my $self       = shift;
     my $dependency = shift;
 
     my $found;
 
-    Debug "searching completed queue";
+    Trace "searching completed queue";
     $found = $self->completed->find(
         single => sub {
             shift->satisfies($dependency);
@@ -155,7 +181,7 @@ sub find_dependency { Debug "find_dependency(@{[Dumper($_[1])]})";
         return $found;
     }
 
-    Debug "searching pending queue";
+    Trace "searching pending queue";
     $found = $self->pending->extract(
         single => sub {
             shift->satisfies($dependency);
@@ -166,13 +192,7 @@ sub find_dependency { Debug "find_dependency(@{[Dumper($_[1])]})";
     }
 
 
-    #Debug "searching waiting queue";
-    #$found = $self->waiting->extract(
-    #    single => sub {
-    #        shift->satisfies($dependency);
-    #    });
-
-    Debug "searching runnable queue";
+    Trace "searching runnable queue";
     $found = $self->runnable->extract(
         single => sub {
             shift->satisfies($dependency);
@@ -182,7 +202,7 @@ sub find_dependency { Debug "find_dependency(@{[Dumper($_[1])]})";
     return $found;
 }
 
-sub complete { Debug "complete(@{[Dumper($_[1])]})";
+sub complete { Trace "complete(@{[Dumper($_[1])]})";
     my $self   = shift;
     my $action = shift;
 
@@ -198,7 +218,7 @@ sub complete { Debug "complete(@{[Dumper($_[1])]})";
     }
 }
 
-sub run { Debug "run()";
+sub run { Trace "run()";
     my $self = shift;
     while ($self->actions) {
         my $action = $self->pending->dequeue();
@@ -218,14 +238,14 @@ Also executes actions 'waiting' for this action.
 
 =cut
 
-sub execute { Debug "execute(@{[ $_[1]->name ]})";
+sub execute { Trace "execute(@{[ $_[1]->name ]})";
     my $self   = shift;
     my $action = shift;
     
     # Put action on runnable queue
     $self->runnable->enqueue($action);
 
-    Debug "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
+    Trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -249,7 +269,7 @@ sub execute { Debug "execute(@{[ $_[1]->name ]})";
     }
 
     # Execute the action (This can call 'schedule' as well)
-    Debug "executing %s %s\n", $action->id, $action->name;
+    Trace "executing %s %s\n", $action->id, $action->name;
     $action->execute();
 
     $self->runnable->remove($action);
@@ -257,7 +277,7 @@ sub execute { Debug "execute(@{[ $_[1]->name ]})";
     # Move action to the 'completed' queue
     $self->complete($action);
 
-    Debug "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
+    Trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
