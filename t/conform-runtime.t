@@ -1,7 +1,9 @@
 package Conform::Runtime;
 use Test::More qw(no_plan);
-use strict;
+use Test::Trap;
 use FindBin;
+
+use strict;
 
 BEGIN {
     use lib "$FindBin::Bin/../lib";
@@ -10,23 +12,12 @@ BEGIN {
 
 can_ok 'Conform::Runtime', 'new';
 can_ok 'Conform::Runtime', 'name';
-can_ok 'Conform::Runtime', 'data';
 
-package Conform::Runtime::Tester;
-use Mouse;
-extends 'Conform::Runtime';
+my $runtime;
 
+$runtime = Conform::Runtime->new();
 
-Conform::Logger->set('Stderr');
-
-my $runtime = Conform::Runtime::Tester->new
-                ( plugin_search_dirs =>  ["$FindBin::Bin/data/plugins"],
-                  plugin_search_paths => ['Runtime'] );
-
-for my $task (keys %{$runtime->tasks}) {
-    $runtime->execute($runtime->tasks->{$task})
-}
-
+ok $runtime,    "@{[ ref $runtime ]} created";
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
