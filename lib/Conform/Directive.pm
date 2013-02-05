@@ -85,6 +85,13 @@ has 'desc' => (
     isa => 'Str',
 );
 
+sub execute {
+    my $self = shift;
+    my $impl = $self->impl;
+    $impl->($self, @_);
+
+}
+
 ######
 # TODO
 #  prereq   - compile time dependency checking
@@ -93,6 +100,7 @@ has 'desc' => (
 #  accumulator - accumulate 'directives' @ compile time and @ runtime to be merged 
 #  Directive::Compiler? - loads ALL directives by 'type' and generated 'compiled' 'Conform::Directive's?
 #  classes for prereq, req? E.g. prereq => [ 'Runtime::Server::Linux::Debian' => 'v6' ]
+#  pod parsing for documentation
 
 =head2  prereq
 
@@ -112,12 +120,9 @@ has 'require' => (
     isa => 'ArrayRef',
 );
 
-
-=head2  execute
-
-=cut
-
-requires 'execute';
+has 'impl' => (
+    is => 'rw',
+);
 
 
 1;
