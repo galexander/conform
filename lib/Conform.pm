@@ -1,5 +1,6 @@
 package Conform;
 use strict;
+use Mouse;
 
 our $VERSION = 0.01;
 
@@ -20,11 +21,6 @@ use Conform;
 Conform - configuration management and deployment framework
 
 =cut
-
-sub import {
-
-    strict->import; # turn on strictures
-}
 
 =head1	AUTHOR
 
