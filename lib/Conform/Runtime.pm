@@ -3,9 +3,9 @@ use strict;
 use attributes ();
 use Mouse;
 use Module::Pluggable::Object;
-use Conform::Role::Task;
-use Conform::Role::Action;
+use Conform::Action;
 use Scalar::Util qw(refaddr);
+use Data::Dump qw(dump);
 
 use Conform::Logger qw($log);
 
@@ -23,9 +23,13 @@ use Conform::Runtime;
 
 =head1  CONSTRUCTOR
 
-=head2  BUILD
+=head2  new
 
 =cut
+
+sub BUILD {
+    my $self = shift;
+}
 
 =head1   ACCESSOR METHODS
 
@@ -33,23 +37,17 @@ use Conform::Runtime;
 
 =cut
 
-has 'name',    ( is => 'rw' );
-
+has 'name' => (
+    is  => 'rw',
+    isa => 'Str',
+);
 
 =head2   data
 
 =cut
 
-has 'data',    ( is => 'rw' );
-
-=head2  tasks
-
-=cut
-
-has 'tasks', (
-    is  => 'rw',
-    isa => 'HashRef',
-    default => sub { {} },
+has 'data' => (
+    is  => 'rw'
 );
 
 =head2  actions
@@ -101,18 +99,13 @@ sub execute {
         if $executable->can(qw(execute));
 }
 
-sub define_task {
-    my $self = shift;
-    my $task = shift;
-    $log->debugf("Defining 'Task' with name %s", $task->name);
-    $self->tasks->{$task->name} = $task;
-}
-
 sub define_action {
     my $self   = shift;
     my $action = shift;
     $log->debugf("Defining 'Action' with name %s", $action->name);
-    $self->actions->{$action->name} = $action;
+    my $actions = $self->actions;
+    $actions->{$action->name} ||= [];
+    push @{$actions->{$action->name}}, $action;
 }
 
 sub define {
@@ -120,7 +113,6 @@ sub define {
     my $type    = shift;
     my $object  = shift;
 
-    return $self->define_task  ($object) if $type eq 'Task';
     return $self->define_action($object) if $type eq 'Action';
 
     $log->error("Error defining $type (unknown)");
@@ -193,7 +185,7 @@ EOREQ
                 next unless defined \&{"${plugin}\::${field}"};
                 my @attr = attributes::get(\&{"${plugin}\::${field}"});
 
-                for my $type (qw(Task Action)) {
+                for my $type (qw(Action)) {
                     for my $name (_get_type_names $type, $field, @attr) {
                         $log->debugf("%s::%s is a '%s'", $plugin, $name, $type);
 
@@ -216,9 +208,113 @@ sub implements {
     my $self = shift;
     my $name = shift;
 
-    return $self->tasks->{$name}   if exists $self->tasks->{$name};
     return $self->actions->{$name} if exists $self->actions->{$name};
     undef;
+}
+
+sub _namespaces {
+    my $self = shift;
+    my @exclude = @_;
+    my @isa  = ();
+
+    my $class = ref $self;
+    push @isa, $class;
+
+    my @parts = split /::/, $class;
+    while (pop @parts) {
+        my $ns = join "::", @parts;
+        push @isa, $ns if $ns;
+    }
+
+    return @isa;
+}
+
+sub _get_pkg_inheritance {
+    my $self = shift;
+    my @isa  = ();
+
+    return \@isa;
+}
+
+sub boot {
+    my $self = shift;
+    $log->debugf("%s::boot()", ref $self);
+    $self->load_runtime_plugins;
+    $self->load_runtime_data;
+    $self->load_runtime_actions;
+    $log->trace("@{[ dump $self->actions ]}");
+}
+
+sub load_runtime_plugins {
+    $log->trace("load_runtime_plugins");
+}
+
+sub load_runtime_data {
+    $log->trace("load_runtime_data");
+}
+
+sub load_runtime_actions {
+    my $self = shift;
+    $log->trace("load_runtime_actions");
+
+    my @ns = $self->_namespaces;
+    
+    $log->debug("namespace inheritance is @{[ dump \@ns ]}");
+
+
+    my %seen = ();
+    for my $ns (@ns) {
+        if((my $action_ns = $ns) =~ s/Runtime/Action/) {
+            $log->debug("mapped runtime namespace ($ns) to action namespace ($action_ns)");
+
+            my $finder = Module::Pluggable::Object->new( search_path => [ $action_ns ]);
+
+
+            for my $plugin ($finder->plugins) {
+                next if $seen{$plugin}++;
+                $log->debug("found plugin $plugin");
+                $self->load_action($plugin);
+                
+            }
+        }
+    }
+}
+
+sub load_action {
+    my $self    = shift;
+    my $plugin  = shift;
+    $log->debug("load_action $plugin");
+
+    my $name = $plugin;
+
+    $name =~ s/^.*:://;
+
+    eval "require $plugin";
+    die "$@" if $@;
+    my $action;
+    if ($plugin->isa('Conform::Action')) {
+        $log->trace("$plugin isa 'Conform::Action'");
+        my $action = $plugin->new(name => $name);
+        unless ($action->name) {
+            $action->name($name);
+        }
+
+        if ($action->can('execute')) {
+            $self->define_action ($action);
+            return;
+        }
+    }
+
+    $action ||= Conform::Action->new(name => $name);
+
+    no strict 'refs';
+    SYM: for my $sym (sort keys %{"${plugin}\::"}) {
+        if ($sym eq lc $name) {
+            $action = $plugin->new(name => $name, impl => \&{"${plugin}\::${sym}"});
+            $self->define_action($action);
+        }
+    }
+
 }
 
 my %attrs = ();
@@ -234,8 +330,6 @@ sub FETCH_CODE_ATTRIBUTES {
     my $attrs = $attrs{ refaddr $subref };
     return @{$attrs || [] };
 }
-
-__PACKAGE__->meta->make_immutable;
 
 =head1  SEE ALSO
 
