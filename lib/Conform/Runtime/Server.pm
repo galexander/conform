@@ -1,7 +1,8 @@
 package Conform::Runtime::Server;
 use strict;
 use Mouse;
-use Net::Domain qw(hostname hostfqdn hostdomain domainname);
+use Net::Domain ();
+use POSIX ();
 
 =head1  NAME
 
@@ -17,20 +18,44 @@ use Conform::Runtime::Server;
 
 extends 'Conform::Runtime';
 
-use parent 'Conform::Runtime';
+=head1  METHODS
 
+=head2  os
 
-sub BUILD {
-    my $self = shift;
-    $self->name($self->hostname)
-        unless $self->name;
-    $self;
+=cut
+
+sub os { $^O }
+
+sub uname {
+    my @uname = POSIX::uname;
+
+    my %uname = ();
+    for (qw(sysname nodename release version machine)) {
+        $uname{$_} = shift @uname;
+    }
+    return \%uname;
 }
 
+sub posix_sysname { return uname()->{sysname};      }
 
-sub File_install : Task {
+sub posix_nodename { return uname()->{nodename};    }
 
-}
+sub posix_release { return uname()->{release};      }
+
+sub posix_version { return uname()->{version};      }
+
+sub posix_machine { return uname()->{machine};      }
+
+sub arch { posix_machine; } 
+
+sub hostname    { Net::Domain::hostname }
+
+sub hostfqdn    { Net::Domain::hostfqdn }
+
+sub hostdomain  { Net::Domain::hostdomain }
+
+sub domainname  { Net::Domain::domainname }
+
 
 =head1  SEE ALSO
 

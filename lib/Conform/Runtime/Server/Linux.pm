@@ -17,6 +17,10 @@ use Conform::Runtime::Server::Linux;
 
 extends 'Conform::Runtime::Server';
 
+=head1  METHODS
+
+=cut
+
 =head1  SEE ALSO
 
 L<Conform::Runtime::Server>
