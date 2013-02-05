@@ -11,6 +11,7 @@ BEGIN {
 can_ok 'Conform::Action', 'name';
 can_ok 'Conform::Action', 'impl';
 can_ok 'Conform::Action', 'execute';
+can_ok 'Conform::Action', 'dependencies';
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
