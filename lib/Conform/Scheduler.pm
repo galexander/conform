@@ -29,7 +29,7 @@ use Conform::Queue;
 use Data::Dumper;
 use Conform::Debug qw(Debug Trace);
 
-$Data::Dumper::Deparse++;
+# $Data::Dumper::Deparse++;
 
 has 'pending'   => (
     is      => 'rw',

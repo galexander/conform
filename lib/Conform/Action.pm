@@ -44,6 +44,12 @@ has 'dependencies' => (
     default => sub { [] },
 );
 
+has 'args' => (
+    is => 'rw',
+    isa => 'HashRef',
+    required => 1,
+);
+
 sub BUILD {
     my $self = shift;
     $self;

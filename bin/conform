@@ -1,0 +1,63 @@
+#!perl
+
+use strict;
+use Getopt::Long;
+use Pod::Usage qw(pod2usage);
+use Carp qw(croak);
+
+use Conform;
+use Conform::Agent;
+use Conform::Runtime;
+use Conform::Site;
+use Conform::Config;
+use Conform::Debug;
+use Conform::Logger qw($log);
+use Conform::Runtime::Server::Posix;
+use Conform::SiteLoader;
+
+my @debug;
+my @trace;
+my $uri;
+my $conf_file;
+my $runtime;
+
+
+sub usage {
+	my %args = @_;
+	pod2usage %args;
+}
+
+GetOptions(
+	'uri=s'         => \$uri,
+	'runtime'       => \$runtime,
+    'conf-file=s'   => \$conf_file,
+    'trace'         => \$Conform::Debug::TRACE,
+    'debug'         => \$Conform::Debug::DEBUG,
+	'h|?'           => \&usage
+) or usage(msg => 'Invalid parametes');
+
+
+my $runtime = Conform::Runtime::Server::Posix->new(iam => 'test');
+my $site    = Conform::SiteLoader->load($uri);
+my $agent   = Conform::Agent->new(site => $site, runtime => $runtime);
+
+$agent->conform();
+
+
+__END__
+
+=head1	NAME
+
+conform
+
+=cut
+
+=head1  SYNOPSIS
+
+    conform [-c /etc/conform.conf]
+
+=cut
+
+
+# vi: set ts=4 sw=4:
+# vi: set expandtab:

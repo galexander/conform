@@ -5,7 +5,11 @@ use Mouse;
 use Conform::Site;
 use Conform::Logger qw($log);
 use Data::Dump qw(dump);
-use Conform::Task::Queue;
+use Conform::Scheduler;
+use Conform::Debug qw(Trace Debug);
+use Conform::Action;
+use Storable qw(dclone);
+
 
 =head1  NAME
 
@@ -29,7 +33,7 @@ functionality provided by a L<Conform::Runtime>
 A Conform::Runtime provides
 =over 4
 
-=item   implementation of tasks and actions
+=item   implementation of and actions
 
 =item   implementation of data resolvers
 
@@ -78,6 +82,13 @@ has 'runtime' => (
     required => 1,
 );
 
+
+has 'scheduler' => (
+    is => 'rw',
+    isa => 'Conform::Scheduler',
+    default => sub { Conform::Scheduler->new() },
+);
+
 =head2  site
 
 =cut
@@ -92,19 +103,6 @@ has 'site' => (
 
 =cut
 
-has 'tasks' => (
-    is => 'rw',
-    isa => 'Conform::Task::Queue',
-    default => sub { Conform::Task::Queue->new() }
-);
-
-has 'unscheduled_tasks' => (
-    is => 'rw',
-    isa => 'Conform::Task::Queue',
-    default => sub { Conform::Task::Queue->new() }
-);
-
-
 =head2  init
 
 =cut
@@ -115,28 +113,23 @@ sub init {
     my $runtime = $self->runtime;
     my $site    = $self->site;
 
-    $self->compile_task_queue;
+    $runtime->boot;
 
+    $self->compile;
 }
 
 sub schedule {
     my $self = shift;
-    my $task = shift;
-    my $data = shift;
-    $log->debug("scheduling task @{[$task]} -> @{[ dump($data) ]}");
+    my $name = shift;
+    my $action = shift;
+    Trace "%s", $action;
 
-    my $tasks   = $self->tasks;
-    my $runtime = $self->runtime;
+    Debug("scheduling action @{[$name]} -> @{[ dump($action) ]}");
 
-    $log->debug("determining if @{[ ref $runtime ]} implements $task");
-    if ($runtime->implements ($task)) {
-        $log->debug("@{[ ref $runtime ]} implements $task");
-
-    }
-
+    $self->scheduler->schedule($action);
 }
 
-sub identify_tasks {
+sub identify_action {
     my $self = shift;
     my $name = shift;
     my $hash = shift;
@@ -146,34 +139,51 @@ sub identify_tasks {
         my $value = $hash->{$tag};
         $log->debug("identifying task $tag");
 
-        $self->schedule($tag => $value);
-        
+        my $provider = $self->runtime->find_provider(Action => $tag);
+        Debug "found provider %s for %s with %s tag = %s", dump($provider), $name, dump($value), $tag;
+        if ($provider) {
+            if (ref $value eq 'HASH') {
+                for my $id (keys %$value) {
+                    my $agent   = $self;
+                    my $runtime = $self->runtime;
+                    my $args    = $value->{$id};
+                    my $name    = $provider->name();
+
+                    my $action =
+                        Conform::Action->new('id' => $id,
+                                             'args' => $value->{$id},
+                                             'name' => $provider->name(),
+                                             'impl' => sub { $provider->impl->($id, $args, @_, $agent, $runtime) });
+
+                    $self->schedule($tag => $action);
+                }
+            }
+        }
     }
 }
 
-sub compile_task_queue {
+sub compile {
     my $self = shift;
-    $log->debug("compile_task_queue");
 
     my $site    = $self->site;
     my $runtime = $self->runtime;
 
     # collect all tasks
 
-    $site->walk($runtime->id,  sub { $self->identify_tasks (@_) });
+    $site->walk($runtime->iam,  sub { $self->identify_action (@_) });
 
 }
 
 sub conform {
     my $self = shift;
 
+    Debug "Scheduler has %d jobs", $self->scheduler->pending->size;
+    
+    $self->scheduler->run();
 
 }
 
-
 =head1  SEE ALSO
-
-
 
 =head1  AUTHOR
 

@@ -15,7 +15,7 @@ use Conform::Runtime::Server::Linux;
 
 =cut
 
-extends 'Conform::Runtime::Server';
+extends 'Conform::Runtime::Server::Posix';
 
 =head1  METHODS
 

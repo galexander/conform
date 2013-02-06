@@ -29,6 +29,10 @@ sub set {
     Log::Any::Adapter->set(@_);
 }
 
+sub note;
+sub debug;
+sub lines_prefix;
+
 =head1  SEE ALSO
 
 =over

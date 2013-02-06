@@ -1,18 +1,17 @@
-package Conform::PluginLoader;
+package Conform::Plugin::Loader;
 use Mouse::Role;
 use Conform::Logger qw($log);
 use Data::Dump qw(dump);
 use attributes;
 use Module::Pluggable;
-use Conform::Debug qw(Trace Debug);
 
 =head1  NAME
 
-Conform::PluginLoader
+Conform::Plugin::Loader
 
 =head1  SYNSOPSIS
 
-use Conform::PluginLoader;
+use Conform::Plugin::Loader;
 
 =head1  DESCRIPTION
 
@@ -24,6 +23,8 @@ use Conform::PluginLoader;
 
 has 'plugins' => (
     is => 'rw',
+    isa => 'ArrayRef',
+    default => sub { [] } 
 );
 
 has 'plugin_type' => (
@@ -34,12 +35,9 @@ has 'plugin_type' => (
 sub get_plugin_type {
     my $self = shift;
     my $type = $self->plugin_type;
-
-    Trace;
-
     unless ($type) {
         my $class = ref $self;
-        ($type = $class) =~ s/^Conform::(\S+)::PluginLoader/$1/;
+        ($type = $class) =~ s/^Conform::(\S+)/$1/;
     }
     return $self->plugin_type($type);
 }
@@ -47,21 +45,15 @@ sub get_plugin_type {
 sub register {
     my $self   = shift;
     my $plugin = shift;
-
-    Trace;
-
     my $plugins = $self->plugins;
     $plugins ||= [];
     push @$plugins, $plugin;
     $self->plugins($plugins);
 }
 
-sub plugin_finder {
+sub plugin_resolver {
     my $self = shift;
     my $type = $self->get_plugin_type;
-
-    Trace;
-
     return new Module::Pluggable::Object
                     search_path => [ "Conform::${type}" ],
                     except => qr/^Conform::\S+::Plugin/,
@@ -73,28 +65,22 @@ sub plugin {
     my $class  = ref $self;
     my $source = shift;
 
-    Trace;
-
     my $plugin = $source;
-    my $plugin_type = sprintf "Conform::%s::Plugin", $self->get_plugin_type;
-    eval "use $plugin_type;";
-    die "$@" if $@;
+    my $plugin_type = sprintf "Conform::%s", $self->get_plugin_type;
 
-    $log->debug("Plugging in $plugin_type from $source");
+    $log->debug("plugging in $plugin_type from $source");
 
     $source =~ s/::/\//g;
     $source.= '.pm'
         unless $source=~ /\.\S+$/;
 
     eval {
-        my $result = eval <<EOPLUGIN;
-require '$source';
+        eval <<EOPLUGIN;
+do '$source';
 EOPLUGIN
         if (my $err = $@) {
             die $err;
         }
-
-        Trace "evaluated %s %s", $source, $result;
 
         if (UNIVERSAL::isa($plugin, $plugin_type)) {
             (my $name = $source) =~ s!^.*/(\S+)\.(\S+)?!$1!;
@@ -105,8 +91,6 @@ EOPLUGIN
 
         sub _get_type_names {
             my ($type, $field, @list) = @_;
-
-            Trace "%s %s %s", $type, $field, dump(\@list);
 
             my @names = ();
 
@@ -123,10 +107,10 @@ EOPLUGIN
                     unless grep /^$field$/, @names;
             }
 
-            #if ($field =~ /^[A-Z][a-z]+/) {
-            #    push @names, $field
-            #        unless grep /^$field$/, @names;
-            #}
+            if ($field =~ /^[A-Z][a-z]+/) {
+                push @names, $field
+                    unless grep /^$field$/, @names;
+            }
 
             return @names;
         }
@@ -141,10 +125,7 @@ EOPLUGIN
             for my $name (_get_type_names $type, $field, @attr) {
                 $log->debugf("%s::%s is a '%s'", $plugin, $name, $type);
 
-                my $object = $plugin_type->new(name => $name,
-                                               impl => \&{"${plugin}\::${field}"},
-                                               id   => $plugin->getId(),
-                                               version => $plugin->getVersion() ||'');
+                my $object = $plugin_type->new(name => $name, impl => \&{"${plugin}\::${field}"});
                 $self->register($object);
             }
         }

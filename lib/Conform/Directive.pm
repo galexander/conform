@@ -87,9 +87,13 @@ has 'desc' => (
 
 sub execute {
     my $self = shift;
-    my $impl = $self->impl;
-    $impl->($self, @_);
-
+    my $provider = $self->impl;
+    if (ref $provider eq 'CODE') {
+          # $provider->($self, $self->id, $self->args);
+          $provider->($self, @_);
+    } else {
+        $provider->impl->($self->id, $self->args);
+    }
 }
 
 ######

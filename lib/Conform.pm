@@ -1,5 +1,4 @@
 package Conform;
-use strict;
 use Mouse;
 
 our $VERSION = 0.01;

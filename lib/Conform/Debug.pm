@@ -26,15 +26,18 @@ sub _msg {
 }
 
 sub Debug {
-    _msg \$DEBUG, 'DEBUG', (caller)[0], @_;
+    _msg \$DEBUG,
+         'DEBUG',
+         (caller)[0], @_;
 }
 
 sub Trace {
-    _msg \$TRACE, 'TRACE', (caller)[0], @_;
-
+    _msg \$TRACE,
+         'TRACE',
+         # sprintf("%s::%s", (caller(1))[0], (caller(1))[3]),
+         sprintf("%s()", (caller(1))[3]),
+         @_;
 }
-
-
 
 
 1;

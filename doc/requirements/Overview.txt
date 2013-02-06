@@ -1,0 +1,133 @@
+Conform Requirements - Overview
+
+Conform is a process, where a server or device is able to match a given
+specification or defintion by implementing a series of pre-defined tasks
+or actions.
+
+This allows for the rapid deployment and configuration in a declarative 
+manner.  In an operational environment predictability, repeatability
+and visibility are key.  
+
+Like Perl, the easy should be easy and
+the impossible should be possible.
+
+From a sys admin perspective (dev-ops) - learning curve
+should be flat - and unnobtrusive.
+
+From a development perspective, it should be easily extensible
+and clear on how to develop for and integrate and extend.
+Again - if a module or task isn't provided - there should be
+a simple way of doing hard things.
+
+Transparecy and logging are key.
+
+"Servers"
+
+Each server or device has an implementation specific way of accomplishing a certain
+tasks. E.g. A server can provide package management functions, but each different
+operating systems can accomplish this task in their own way. apt vs yum etc.
+
+Servers or devices can implement tasks in a "common" way as well.
+E.g. installing a file would be a canditate for a common task
+that is provided by a common, server agnostic, implementation.
+
+--
+
+"Server Data" - Runtime Information.
+
+TBD
+
+--
+
+"Tasks", "Actions" and "Directives"
+
+Actions are atomic units of work.
+Tasks are a group of actions??
+
+Tasks and actions represent directives that are available to site designers.
+
+Tasks can be "specialised", or generalised. E.g. a server can provide
+multiple implementations of the same task - and its up to the server
+or the definition, which "version/implementation" should actually be
+executed.
+
+Tasks or actions are specified by configuration managers or
+site designers, or system administrators with the use of directives
+when they provide a specification.  Each task, or action needs to be
+identified by a name.  This name must be a synonym for the directive
+that implements the specific task or action.
+
+Tasks or actions can inherit from other tasks or actions, 
+can require other actions or tasks to be defined before
+they are usable, can require that other tasks or actions
+have actually been "run" prior to them executing, 
+can ensure other tasks should "run" or "execute", depending
+on the outcome of the task or action in question.
+
+Tasks/Actions can have the following status after they've run
+	executed
+	status
+	did something
+	did nothing
+	error
+
+	^
+	|
+ Need to flesh these out
+
+Tasks/Actions can also be limited to be run on certain types servers.
+
+IDEMPOTENCY! STATELESS! (as possible)
+SAFE MODE!
+
+Use the word 'Directive' or 'Verb' instead of task or action.
+--
+
+"Pluggability" and "Distributution", or "Deployment"
+
+TBD
+
+--
+
+"Configuraion"
+
+TBD
+
+--
+
+"User Interfaces"
+
+TBD
+
+--
+
+"Integration"
+
+TBD
+
+--
+
+"Reporting" and "Logging"
+
+TBD
+
+--
+
+"Documentation" and "Online Help"
+
+TBD
+
+
+Client - Agent
+
+Functional
+
+ * Configure a server or device given a specification or definition.
+
+Non-Functional
+
+Server
+
+Functional
+
+Non-Functional

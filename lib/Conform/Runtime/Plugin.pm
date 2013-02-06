@@ -33,8 +33,6 @@ sub FETCH_CODE_ATTRIBUTES {
 
 =head1  SEE ALSO
 
-
-
 =head1  AUTHOR
 
 Gavin Alexander (gavin.alexander@gmail.com)

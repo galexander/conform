@@ -1,345 +1,163 @@
 package Conform::Runtime;
-use strict;
-use attributes ();
 use Mouse;
-use Module::Pluggable::Object;
-use Conform::Action;
-use Scalar::Util qw(refaddr);
+use Scalar::Util qw(blessed);
+use Data::Dumper;
 use Data::Dump qw(dump);
 
-use Conform::Logger qw($log);
+use Conform::Debug qw(Debug Trace);
+use Conform::Plugin;
 
-=head1  NAME
-
-Conform::Runtime
-
-=head1  SYNSOPSIS
-
-use Conform::Runtime;
-
-=head1  DESCRIPTION
-
-=cut
-
-=head1  CONSTRUCTOR
-
-=head2  new
-
-=cut
-
-sub BUILD {
-    my $self = shift;
-}
-
-=head1   ACCESSOR METHODS
-
-=head2    name
-
-=cut
-
-has 'name' => (
-    is  => 'rw',
+has iam => (
+    is => 'rw',
     isa => 'Str',
+    required => 1,
 );
 
-=head2   data
-
-=cut
-
-has 'data' => (
-    is  => 'rw'
+has action_providers => (
+    is => 'rw',
+    isa => 'ArrayRef',
 );
 
-=head2  actions
+has data_providers => (
+    is => 'rw',
+    isa => 'ArrayRef',
+);
 
-=cut
+has data => (
+    is => 'rw',
+);
 
-has 'actions', (
-    is  => 'rw',
+has providers => (
+    is => 'rw',
     isa => 'HashRef',
     default => sub { {} },
 );
 
-=head2  plugin_search_dirs
-
-=cut
-
-has 'plugin_search_dirs', (
-    is  => 'rw',
-    isa => 'ArrayRef',
-);
-
-
-=head2  plugin_search_paths
-
-=cut
-
-has 'plugin_search_paths', (
-    is  => 'rw',
-    isa => 'ArrayRef',
-);
-
-=head1  OBJECT METHODS
-
-=head2  id
-
-=cut
-
-sub id { $_[0]->name }
-
-=head2   execute
-
-=cut
-
-sub execute {
-    my $self = shift;
-    my $executable = shift;
-
-    $executable->execute($self, $executable, @_)
-        if $executable->can(qw(execute));
-}
-
-sub define_action {
-    my $self   = shift;
-    my $action = shift;
-    $log->debugf("Defining 'Action' with name %s", $action->name);
-    my $actions = $self->actions;
-    $actions->{$action->name} ||= [];
-    push @{$actions->{$action->name}}, $action;
-}
-
-sub define {
-    my $self    = shift;
-    my $type    = shift;
-    my $object  = shift;
-
-    return $self->define_action($object) if $type eq 'Action';
-
-    $log->error("Error defining $type (unknown)");
-}
-
-sub load_plugins {
-    my $self = shift;
-    my $name = ref $self;
-
-    $log->debugf("%s->load()", $name);
-    
-    my @plugin_search_paths;
-    my @plugin_search_dirs;
-
-    push @plugin_search_paths, sprintf("%s::Plugin", $name);
-    push @plugin_search_paths, sprintf("%s::Plugin", __PACKAGE__);
-    push @plugin_search_paths, @{$self->plugin_search_paths || []};
-    $log->debugf("plugin_search_paths %s", join ",", @plugin_search_paths);
-
-    push @plugin_search_dirs, @{$self->plugin_search_dirs || []};
-    $log->debugf("plugin_search_dirs %s", join ",", @plugin_search_dirs);
-
-    local @INC = @INC;
-    push @INC, @plugin_search_dirs;
-
-    my $finder  = Module::Pluggable::Object->new (
-                        search_path  => \@plugin_search_paths,
-                        search_dirs  => \@plugin_search_dirs
-                  );
-                    
-    my @plugins = $finder->plugins;
-    PLUGIN: for my $plugin (@plugins) {
-        $log->debug("Loading plugin from $plugin");
-
-        eval {
-            eval <<EOREQ;
-require $plugin;
-EOREQ
-            if (my $err = $@) {
-                die $err;
-            }
-
-            sub _get_type_names {
-                my ($type, $field, @list) = @_;
-
-                my @names = ();
-
-                ATTR: for my $attr (@list) {
-                    if ($attr =~ /^\Q$type\E(?!\((\S+)\))?$/) {
-                        my $name = $1 || $field;
-                        push @names, $name
-                            unless grep /^$name$/, @names;
-                    }
-                }
-
-                if ($field =~ s/_\Q$type\E$//) {
-                    push @names, $field
-                        unless grep /^$field$/, @names;
-                }
-
-                return @names;
-            }
-
-            next PLUGIN
-                if $plugin->can('supported_runtime')
-                        and !$plugin->supported_runtime($self);
-
-            no strict 'refs';
-            for my $field (keys %{"${plugin}\::"}) {
-                next unless defined \&{"${plugin}\::${field}"};
-                my @attr = attributes::get(\&{"${plugin}\::${field}"});
-
-                for my $type (qw(Action)) {
-                    for my $name (_get_type_names $type, $field, @attr) {
-                        $log->debugf("%s::%s is a '%s'", $plugin, $name, $type);
-
-                        my $thing = sprintf "Conform::%s", $type;
-                        my $executable = $thing->new(name => $name, impl => \&{"${plugin}\::${field}"});
-
-                        $self->define ($type => $executable);
-                        
-                    }
-                }
-            }
-        };
-        if (my $err = $@) {
-            $log->error("Error loading plugin $plugin: $@");
-        }
-    }
-}
-
-sub implements {
-    my $self = shift;
-    my $name = shift;
-
-    return $self->actions->{$name} if exists $self->actions->{$name};
-    undef;
-}
-
-sub _namespaces {
-    my $self = shift;
-    my @exclude = @_;
-    my @isa  = ();
-
-    my $class = ref $self;
-    push @isa, $class;
-
-    my @parts = split /::/, $class;
-    while (pop @parts) {
-        my $ns = join "::", @parts;
-        push @isa, $ns if $ns;
-    }
-
-    return @isa;
-}
-
-sub _get_pkg_inheritance {
-    my $self = shift;
-    my @isa  = ();
-
-    return \@isa;
-}
-
 sub boot {
     my $self = shift;
-    $log->debugf("%s::boot()", ref $self);
-    $self->load_runtime_plugins;
-    $self->load_runtime_data;
-    $self->load_runtime_actions;
-    $log->trace("@{[ dump $self->actions ]}");
+
+    Trace;
+
+    Debug "Booting runtime %s %s", $self->getId(), $self->getVersion();
+
+    Debug "Loading action providers for %s", blessed $self;
+    $self->_discover_providers
+        ('Action');
+
+    Debug "Loading data providers for %s",   blessed $self;
+    $self->_discover_providers
+        ('Data');
+
+    $self;
 }
 
-sub load_runtime_plugins {
-    $log->trace("load_runtime_plugins");
+sub get_data {
+    my $self   = shift;
+    my $method = shift;
+
+    if ($self->can($method)) {
+        return $self->$method(@_);
+    }
+
+    my $data_provider = $self->find_data_provider ($method, @_);
+    if ($data_provider) {
+        $data_provider->resolve(@_);
+    }
+    return undef;
 }
 
-sub load_runtime_data {
-    $log->trace("load_runtime_data");
-}
-
-sub load_runtime_actions {
+sub call_action {
     my $self = shift;
-    $log->trace("load_runtime_actions");
-
-    my @ns = $self->_namespaces;
+    my $method = shift;
     
-    $log->debug("namespace inheritance is @{[ dump \@ns ]}");
-
-
-    my %seen = ();
-    for my $ns (@ns) {
-        if((my $action_ns = $ns) =~ s/Runtime/Action/) {
-            $log->debug("mapped runtime namespace ($ns) to action namespace ($action_ns)");
-
-            my $finder = Module::Pluggable::Object->new( search_path => [ $action_ns ]);
-
-
-            for my $plugin ($finder->plugins) {
-                next if $seen{$plugin}++;
-                $log->debug("found plugin $plugin");
-                $self->load_action($plugin);
-                
-            }
-        }
+    if ($self->can($method)) {
+        return $self->$method(@_);
     }
+
+    my $action_provider = $self->find_action_provider($method, @_);
+    if ($action_provider) {
+        $action_provider->execute(@_);
+    }
+    return undef;
 }
 
-sub load_action {
-    my $self    = shift;
-    my $plugin  = shift;
-    $log->debug("load_action $plugin");
+sub register_provider {
+    my $self = shift;
+    my $type = shift;
+    my $provider = shift;
 
-    my $name = $plugin;
+    my $providers = $self->providers;
+    $providers->{$type} ||= [];
+    push @{$providers->{$type}}, $provider;
+    $provider;
+}
 
-    $name =~ s/^.*:://;
-
-    eval "require $plugin";
-    die "$@" if $@;
-    my $action;
-    if ($plugin->isa('Conform::Action')) {
-        $log->trace("$plugin isa 'Conform::Action'");
-        my $action = $plugin->new(name => $name);
-        unless ($action->name) {
-            $action->name($name);
-        }
-
-        if ($action->can('execute')) {
-            $self->define_action ($action);
-            return;
-        }
+sub find_provider {
+    my $self = shift;
+    my $type = shift;
+    my $name = shift;
+    my $providers = $self->providers->{$type};
+    $providers ||= [];
+    for my $provider (@$providers) {
+        return $provider
+            if $provider->name eq $name;
     }
+    return undef;
+}
 
-    $action ||= Conform::Action->new(name => $name);
+sub _inheritance;
+sub _inheritance {
+    my $package = shift;
+    my $method  = shift;
+
+    $method->($package);
 
     no strict 'refs';
-    SYM: for my $sym (sort keys %{"${plugin}\::"}) {
-        if ($sym eq lc $name) {
-            $action = $plugin->new(name => $name, impl => \&{"${plugin}\::${sym}"});
-            $self->define_action($action);
+    if (defined @{"${package}\::ISA"}) {
+        for my $isa (@{"${package}\::ISA"}) {
+            _inheritance $isa, $method;
         }
+    }
+}
+
+sub _discover_providers {
+    my $self = shift;
+    my $type = shift;
+
+    Trace;
+
+    my $package = blessed $self;
+
+    Debug "finding %s provider for %s",
+                lc $type,
+                $package; 
+
+    my @runtimes = ();
+
+     _inheritance $package, sub {
+        my $package = shift;
+        push @runtimes, $package
+            if $package->isa(__PACKAGE__);
+    };
+
+    Debug "Runtimes = %s", dump(\@runtimes);
+
+    my $loader = "Conform::${type}::PluginLoader";
+    eval "use $loader;";
+    die "$@" if $@;
+    $loader = $loader->new(plugin_type => $type);
+
+    Debug "%s", dump ($loader);
+
+    my $plugins = $loader->get_plugins();
+
+    Debug "Plugins %s", dump($plugins);
+
+    for (@$plugins) {
+        $self->register_provider($type => $_);
     }
 
 }
-
-my %attrs = ();
-
-sub MODIFY_CODE_ATTRIBUTES {
-    my ($package, $subref, @attrs) = @_;
-    $attrs{ refaddr $subref } = \@attrs;
-    ();
-}
-
-sub FETCH_CODE_ATTRIBUTES {
-    my ($package, $subref) = @_;
-    my $attrs = $attrs{ refaddr $subref };
-    return @{$attrs || [] };
-}
-
-=head1  SEE ALSO
-
-=head1  AUTHOR
-
-Gavin Alexander (gavin.alexander@gmail.com)
-
-=cut
+    
 
 1;
-
-# vi: set ts=4 sw=4:
-# vi: set expandtab:
