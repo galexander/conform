@@ -4,7 +4,7 @@
 
 =head1 NAME
 
-Conform::Core::IO::File - Optus Internet Engineering common utility functions
+Conform::Core::IO::File - Conform common io/file utility functions
 
 =head1 SYNOPSIS
 
