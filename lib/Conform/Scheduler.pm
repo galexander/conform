@@ -243,7 +243,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     # Put action on runnable queue
     $self->runnable->enqueue($action);
 
-    Trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
+    Trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -255,6 +255,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
         my $found = $self->find_dependency ($dependency);
         if ($found) {
             unless($found->complete) {
+                # Execute found (not complete) actions
                 return $self->execute($found);
             }
         } else {
@@ -267,7 +268,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     }
 
     # Execute the action (This can call 'schedule' as well)
-    Trace "executing %s %s\n", $action->id, $action->name;
+    Trace "executing %s %s", $action->id, $action->name;
     $action->execute();
 
     $self->runnable->remove($action);
@@ -275,7 +276,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     # Move action to the 'completed' queue
     $self->complete($action);
 
-    Trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s\n",
+    Trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
