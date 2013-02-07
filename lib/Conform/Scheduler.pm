@@ -218,7 +218,7 @@ sub complete { Trace "complete(@{[Dumper($_[1])]})";
 
 sub run { Trace "run()";
     my $self = shift;
-    while ($self->actions) {
+    while ($self->has_work) {
         my $action = $self->pending->dequeue();
         $self->execute($action);
     }

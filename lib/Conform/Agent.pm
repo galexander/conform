@@ -108,7 +108,7 @@ sub init {
 
     Trace;
     
-    $runtime->boot;
+    $self->runtime->boot;
 
     $self->compile;
 }
@@ -192,7 +192,7 @@ sub conform {
 
     Debug "Scheduler has %d jobs", $self->scheduler->pending->size;
 
-    while ($scheduler->has_work) {
+    while ($self->scheduler->has_work) {
         $self->scheduler->run();
     }
 

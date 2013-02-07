@@ -4,8 +4,6 @@ use Conform::Logger qw($log);
 use Data::Dump qw(dump);
 use attributes;
 
-with 'Conform::Directive';
-
 =head1  NAME
 
 Conform::Action
@@ -29,6 +27,11 @@ use Conform::Action;
 =cut
 
 has 'id' => (
+    is => 'rw',
+    isa => 'Str',
+);
+
+has 'name' => (
     is => 'rw',
     isa => 'Str',
 );
