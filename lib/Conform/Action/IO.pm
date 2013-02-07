@@ -5,7 +5,7 @@ use Data::Dump qw(dump);
 
 use Conform::Plugin;
 
-use Conform::Core::IO::File qw();
+use Conform::Core::IO::File qw(file_install text_install);
 
 sub File_install : Action {
     Debug "File_install(%s)", dump(\@_);
@@ -20,8 +20,10 @@ sub File_install : Action {
 
 sub Text_install : Action {
     Debug "Text_install(%s)", dump(\@_);
-    my $file = shift;
-    my $args = shift;
+    my ($file, $args, $action, $agent, $runtime) = @_;
+
+    my $text = $args->{text};
+    text_install $file, $text, $args->{cmd};
 
 }
 

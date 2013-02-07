@@ -128,9 +128,11 @@ The log message used when checking files into RCS.
 our $safe_mode      = 0;
 our $safe_write_msg = "Changed by $0";
 our $debug          = $Conform::Debug::DEBUG;
+our $log_messages   = "";
 
 sub debug { Debug @_ }
 sub note  { Debug "Note: ", @_ }
+sub lines_prefix { "" }
 
 =head1 FUNCTIONS
 

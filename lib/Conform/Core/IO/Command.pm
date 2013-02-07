@@ -35,7 +35,7 @@ use IO::Pipe;
 use IO::Socket;
 use IO::Select;
 
-use Conform::Core qw( debug note lines_prefix $debug $log_messages timeout safe $debug $safe_mode);
+use Conform::Core qw(action debug note lines_prefix $debug $log_messages timeout safe $debug $safe_mode);
 
 use base qw( Exporter );
 use vars qw(
