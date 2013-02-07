@@ -1,16 +1,9 @@
-This is sort of a plan of whats to come...
+ - Actual functionality of Conform::Core::IO
+    - Split/Simplify Conform::Core::IO::*
+ - Filter plugins by runtime
+ - ActionProvider to spit out actions (instead of being built by the agent)
+ - Dependency/Require checks w/actions
 
-Conform::Queue - job queue object, we should have a wax on and wax off (rollback) queue
-Conform::Queue::Base - basic queue functions
 
-Conform::Role::Action - base for actions, roles are good
-Conform::Action::* - all the actions, like File_install and stuff
-Conform::Task::* - something that runs once, that typically creates a bunch of Action's
-
-Conform::Runtime - where stuff happens
-
-Conform::Logger - what its name implies
-
-Conform::IdentifyHardware - Maybe this should be Conform::Discovery::Hardware and Conform::Discovery::Other
 
 ----
