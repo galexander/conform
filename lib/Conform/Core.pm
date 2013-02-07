@@ -4,11 +4,25 @@
 
 =head1 NAME
 
-Conform::Core - Optus Internet Engineering host configuration functions
+Conform::Core - Conform Core host configuration functions
 
 =head1 SYNOPSIS
 
     use Conform::Core;
+
+    $Conform::Core::debug          = $debug;
+    $Conform::Core::safe_mode      = $safe_mode;
+    $Conform::Core::safe_write_msg = $message;
+    $log_messages = $Conform::Core::log_messages;
+
+    debug @messages;
+    note  @messages;
+    warn  @messages;
+    die   @messages;
+
+    $result  = action $message => \&code, @args;
+    $result  = safe   \&code, @args;
+
 
     my $obj = Conform::Core->new( hash => \%m, iam => 'host.name' );
 
@@ -17,7 +31,6 @@ Conform::Core - Optus Internet Engineering host configuration functions
     @values   = comma_or_arrayref @csvs;
 
     $value    = validate $schema, $new, $old, @keys;
-    $is_email = validate_optusmail $email;
 
     $is_class = i_isa_class $thing;
     $is_host  = i_isa_host  $thing;
@@ -42,7 +55,7 @@ Conform::Core - Optus Internet Engineering host configuration functions
 =head1 DESCRIPTION
 
 The Conform::Core module contains functions for extracting and validating
-host configurations from the OIE common configuration files C<machines> and
+host configurations from the Conform::Core common configuration files C<machines> and
 C<routers.cfg>.
 
 =cut
@@ -52,8 +65,8 @@ package Conform::Core;
 use strict;
 
 use Carp;
-use OIE::Netgroups;
-use OIE::Utils;
+use Conform::Debug qw(Debug);
+use Conform::Core::Netgroups;
 
 use Hash::Merge ();
 
@@ -64,8 +77,10 @@ $VERSION = (qw$Revision: 1.54 $)[1];
 %EXPORT_TAGS = (
     all => [
         qw(
+          action timeout safe note debug lines_prefix $log_messages
+          $debug $safe_mode $safe_write_msg
           comma_or_arrayref
-          validate validate_optusmail
+          validate
           type_list i_isa_class i_isa_host
           i_isa i_isa_fetchall i_isa_mergeall i_isa_merge
           ints_on_host ips_on_host
@@ -87,6 +102,110 @@ sub _deprecated {
     return if $deprecated{$key};
     carp @_;
     $deprecated{$key}++;
+}
+
+=head1 VARIABLES
+
+=over
+
+=item B<$Conform::Core::IO::File::safe_mode>
+
+    $Conform::Core::IO::File::safe_mode = $safe_mode;
+
+When set, potentionally dangerous actions are not performed. By default, safe
+mode is I<not> enabled.
+
+=item B<$Conform::Core::IO::File::safe_write_msg>
+
+    $Conform::Core::IO::File::safe_write_msg = $message;
+
+The log message used when checking files into RCS.
+
+=back
+
+=cut
+
+our $safe_mode      = 0;
+our $safe_write_msg = "Changed by $0";
+our $debug          = $Conform::Debug::DEBUG;
+
+sub debug { Debug @_ }
+sub note  { Debug "Note: ", @_ }
+
+=head1 FUNCTIONS
+
+=over
+
+=item B<action>
+
+    $result = action $message => \&code, @args;
+
+Logs the supplied message (using B<note>) if it is not empty, then, if safe mode
+is not enabled, executes the code reference with the given parameters. The code
+reference is evaluated in the context (void, scalar, or list) in which B<action>
+was called.
+
+In safe mode, the integer 1 is returned, otherwise the return value is that
+of the code reference.
+
+=cut
+
+sub action {
+    my ( $message, $code, @args ) = @_;
+    $code and ref $code eq 'CODE'
+      or croak 'Usage: Conform::Core::IO::File::action($message, \&code, @args)';
+
+    if ($safe_mode) {
+        note "SKIPPING: $message\n" if $message;
+        return 1;
+    }
+    else {
+        note "$message\n" if $message;
+        return $code->(@args);
+    }
+}
+
+=item B<safe>
+
+    $result = safe \&code, @args;
+
+If safe mode is not enabled executes the code reference with the given
+parameters.
+
+Exactly equivalent to:
+
+    $result = action '' => \&code, @args;
+
+=cut
+
+sub safe {
+    $_[0] and ref $_[0] eq 'CODE'
+      or croak 'Usage: Conform::Core::IO::File::safe(\&code, @args)';
+    action '' => @_;
+}
+
+sub timeout {
+    my ( $timeout, $code ) = @_;
+    unless ($timeout) {
+        $code->();
+        return 0;
+    }
+
+    my $alarm = alarm 0;
+    my $err   = do {
+        local $SIG{ALRM} = sub { die "alarm\n" };
+        alarm $timeout;
+        eval { $code->() };
+        $@;
+    };
+    alarm $alarm;
+    if ($err) {
+        die $err unless $err eq "alarm\n";
+        undef $@;
+        return 1;
+    }
+
+    return 0
 }
 
 =head1 OBJECT INTERFACE
@@ -456,49 +575,6 @@ sub validate {
 
         croak "Weird schema terminal: $_";
     }
-}
-
-=item B<validate_optusmail>
-
-    $is_email = validate_optusmail $email;
-
-Returns true if the given scalar C<$email> is a valid optus email address.
-
-This is based on a regular expression, which matches...
-
-   user@optus.net
-   user@optus.com.au
-   user@optusnet.com.au
-   /dev/null
-
-=cut
-
-sub validate_optusmail;
-
-sub validate_optusmail {
-
-    if ( @_ and ref $_[0] and ref $_[0] eq __PACKAGE__ ) {
-        shift;
-    }
-
-    my $mail = shift or return;
-
-    return if ref $mail;
-
-    # run the mail address through the gauntlet of checks
-    return
-      unless (
-
-        # permit user@optus.com.au user@optusnet.com.au user@optus.net.au
-        # it may be worth expanding these out to be more explicit
-        $mail =~ m/^[\w_\.-]+\@(?:[\w_]+\.)?optus(?:net)?\.(com\.au|net)$/
-
-        # allow rootmail to dev null
-        or $mail eq '/dev/null'
-      );
-
-    return 1;
-
 }
 
 =item B<i_isa_class>
@@ -968,16 +1044,16 @@ sub ips_on_host {
 
 Equivalent to:
 
-    use OIE::Netgroups;
-    $groups = OIE::Netgroups::all;
+    use Conform::Core::Netgroups;
+    $groups = Conform::Core::Netgroups::all;
 
 =cut
 
 sub build_netgroups {
     _deprecated
       build_netgroups => "Conform::Core::build_netgroups is deprecated;\n",
-      "use OIE::Netgroups::all instead\n";
-    OIE::Netgroups::all();
+      "use Conform::Core::Netgroups::all instead\n";
+    Conform::Core::Netgroups::all();
 }
 
 =item B<expand_netgroup>
@@ -986,8 +1062,8 @@ sub build_netgroups {
 
 Equivalent to:
 
-    use OIE::Netgroups;
-    @ips = OIE::Netgroups::expand($group);
+    use Conform::Core::Netgroups;
+    @ips = Conform::Core::Netgroups::expand($group);
 
 Note that the initial C<\%groups> parameter is no longer necessary.
 
@@ -997,19 +1073,19 @@ sub expand_netgroup {
     _deprecated
       expand_netgroup =>
       "Conform::Core::expand_netgroup(\\%groups, \$group) is deprecated;\n",
-      "use OIE::Netgroups::expand(\$group) instead\n",
+      "use Conform::Core::Netgroups::expand(\$group) instead\n",
       "(note that \\%groups is not needed)\n";
 
     my ( $groups, $group ) = @_;
     $groups and ref $groups eq 'HASH' and $group
       or croak "Usage: Conform::Core::expand_netgroup(\\%groups, \$group)";
-    $groups == OIE::Netgroups::all()
+    $groups == Conform::Core::Netgroups::all()
       or croak
       "\\%groups parameter passed to Conform::Core::expand_netgroup must\n",
       "have been generated by Conform::Core::build_netgroups (deprecated)\n",
-      "or OIE::Netgroups::all\n";
+      "or Conform::Core::Netgroups::all\n";
 
-    OIE::Netgroups::expand($group);
+    Conform::Core::Netgroups::expand($group);
 }
 
 =back
@@ -1021,9 +1097,5 @@ sub expand_netgroup {
 =head1 SEE ALSO
 
 L<conform>
-
-=head1 ID
-
-    $Id: Conform.pm,v 1.54 2012/07/24 04:17:24 deanh Exp $
 
 =cut

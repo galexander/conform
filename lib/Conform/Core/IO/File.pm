@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/bin/false
 
 =encoding utf8
 
@@ -8,22 +8,7 @@ Conform::Core::IO::File - Optus Internet Engineering common utility functions
 
 =head1 SYNOPSIS
 
-    use Conform::Core::IO::File qw(:all :deprecated :oiehandlers);
-
-    $Conform::Core::IO::File::debug          = $debug;
-    $Conform::Core::IO::File::safe_mode      = $safe_mode;
-    $Conform::Core::IO::File::safe_write_msg = $message;
-    $log_messages = $Conform::Core::IO::File::log_messages;
-
-    debug @messages;
-    note  @messages;
-    warn  @messages;
-    die   @messages;
-
-    $result  = action $message => \&code, @args;
-    $result  = safe   \&code, @args;
-
-    $status  = command $command, @args, \%flags;
+    use Conform::Core::IO::File qw(:all :deprecated :conformhandlers);
 
     $content = slurp_file $filename;
     @lines   = slurp_file $filename;
@@ -42,7 +27,6 @@ Conform::Core::IO::File - Optus Internet Engineering common utility functions
 
     $updated  = text_install $filename, $text,   $cmd, \%flags;
     $updated  = file_install $filename, $source, $cmd, \%flags, @expr;
-    $updated  = http_install $filename, $uri,    $cmd, \%flags, @expr;
 
     $updated  = file_append $filename, $line, $regex, $cmd, $create;
     $updated  = file_modify $filename, $cmd, @expr;
@@ -59,35 +43,21 @@ Conform::Core::IO::File - Optus Internet Engineering common utility functions
 
     $filenames = dir_list $uri, \%flags;
     @filenames = dir_list $uri, \%flags;
-    $filenames = dir_list_http $uri, \%flags;
-    @filenames = dir_list_http $uri, \%flags;
 
     $updated  = dir_check   $dirname, $cmd, \%flags;
     $updated  = dir_install $dirname, $source, $cmd, \%flags;
-    $updated  = dir_install_http $dirname, $source, $cmd, \%flags;
 
     $updated  = symlink_check $target, $symlink, \%flags;
 
     $tty  = this_tty;
-    $host = ip2host($ip);
-
-    $updated  = x509_cert $cert, $key, \%attr;
-
-    # Deprecated functions (only imported with :deprecated)
-    warning @messages;
-    scream  @messages;
-
-    $updated = file_install_http $uri, $filename;
-
-    inetd_service @args;
 
     # Warning and Die handlers are customized if
-    # :oiehandlers
+    # :conformhandlers
 
 =head1 DESCRIPTION
 
-The Conform::Core::IO::File module contains a collection of useful functions for use in OIE
-scripts (primarily C<conform>).
+The Conform::Core::IO::File module contains a collection of useful file/dir/io
+functions for Conform
 
 =cut
 
@@ -114,9 +84,17 @@ use HTTP::Request;
 use HTTP::Date qw( time2str );
 use Text::Template;
 use Conform::Debug qw(Debug);
+use Conform::Core qw(
+                    action
+                    timeout
+                    safe
+                    $safe_mode
+                    $debug
+                    $safe_write_msg
+                    );
 
-# use Conform::Log qw( debug note lines_prefix $debug $log_messages );
-# use Conform::Logger qw( debug note lines_prefix );
+use Conform::Core::IO::Command qw(command);
+
 sub debug { Debug @_ };
 sub note { Debug "note", @_ };
 sub lines_prefix { "" }
@@ -124,44 +102,28 @@ sub lines_prefix { "" }
 use base qw( Exporter );
 use vars qw(
   $VERSION %EXPORT_TAGS @EXPORT_OK
-  $debug $safe_mode $safe_write_msg $log_messages $warnings
 );
-$VERSION     = (qw$Revision: 1.127 $)[1];
+$VERSION     = $Conform::VERSION;
 %EXPORT_TAGS = (
     all => [
         qw(
-          debug note
-          action safe
-          command
           slurp_file slurp_http
           safe_write safe_write_file
           set_attr get_attr
-          text_install file_install http_install
+          text_install file_install
           file_audit file_append file_modify file_unlink
           file_comment_spec file_comment file_uncomment_spec file_uncomment
           template_install template_file_install template_text_install
-          dir_check dir_install dir_install_http
-          dir_list dir_list_http
+          dir_check dir_install
+          dir_list
           symlink_check
-          this_tty ip2host
-          x509_cert
+          this_tty
           )
     ],
-    deprecated => [
-        qw(
-          warning scream
-          file_install_http
-          inetd_service
-          )
-    ],
+    deprecated => [],
 );
 
-@EXPORT_OK = qw( $safe_mode );
-
 Exporter::export_ok_tags( keys %EXPORT_TAGS );
-
-use constant HTTP_CACHE => '/var/cache/conform';
-use constant HTTP_TIMEOUT => 10;
 
 # The first constant is from http://www.netadmintools.com/html/2ioctl_list.man.html
 # Hard coding these removes the need to depend on h2ph
@@ -182,7 +144,8 @@ my $CYAN   = "\e[36m";
 # commands we use
 
 my $ci = '/usr/bin/ci';
-# die "Couldnt find $ci, this is absolutely required" unless -x $ci;
+my $rcs = -x $ci;
+Debug "Couldn't find $ci, not using 'rcs' for file modifications" unless $rcs;
 
 my $intest = $ENV{'HARNESS_VERSION'} || $ENV{'HARNESS_ACTIVE'};
 
@@ -194,9 +157,9 @@ sub import {
     my $package = shift;
     $do_deprecated++ if grep /^:deprecated$/, @_;
 
-    if ( grep { m/^:oiehandlers$/ } @_ ) {
+    if ( grep { m/^:conformhandlers$/ } @_ ) {
 
-        # Conform::Log::import(':oiehandlers');
+        # Conform::Log::import(':conformhandlers');
 
     }
 
@@ -207,356 +170,6 @@ sub _deprecated {
     return if $deprecated{$key};
     $do_deprecated ? carp @_ : croak @_;
     $deprecated{$key}++;
-}
-
-=head1 VARIABLES
-
-=over
-
-=item B<$Conform::Core::IO::File::safe_mode>
-
-    $Conform::Core::IO::File::safe_mode = $safe_mode;
-
-When set, potentionally dangerous actions are not performed. By default, safe
-mode is I<not> enabled.
-
-=item B<$Conform::Core::IO::File::safe_write_msg>
-
-    $Conform::Core::IO::File::safe_write_msg = $message;
-
-The log message used when checking files into RCS.
-
-=back
-
-=cut
-
-$safe_mode      = 0;
-$safe_write_msg = "Changed by $0";
-
-=head1 FUNCTIONS
-
-=over
-
-=item B<action>
-
-    $result = action $message => \&code, @args;
-
-Logs the supplied message (using B<note>) if it is not empty, then, if safe mode
-is not enabled, executes the code reference with the given parameters. The code
-reference is evaluated in the context (void, scalar, or list) in which B<action>
-was called.
-
-In safe mode, the integer 1 is returned, otherwise the return value is that
-of the code reference.
-
-=cut
-
-sub action {
-    my ( $message, $code, @args ) = @_;
-    $code and ref $code eq 'CODE'
-      or croak 'Usage: Conform::Core::IO::File::action($message, \&code, @args)';
-
-    if ($safe_mode) {
-        note "SKIPPING: $message\n" if $message;
-        return 1;
-    }
-    else {
-        note "$message\n" if $message;
-        return $code->(@args);
-    }
-}
-
-=item B<safe>
-
-    $result = safe \&code, @args;
-
-If safe mode is not enabled executes the code reference with the given
-parameters.
-
-Exactly equivalent to:
-
-    $result = action '' => \&code, @args;
-
-=cut
-
-sub safe {
-    $_[0] and ref $_[0] eq 'CODE'
-      or croak 'Usage: Conform::Core::IO::File::safe(\&code, @args)';
-    action '' => @_;
-}
-
-=item B<command>
-
-    $status = command $command, @args, \%flags;
-
-If safe mode is not enabled, runs the specified command with the given arguments
-and returns the child process's exit status. The command and list of arguments
-are treated just as in C<system>: if no arguments are provided, then the command
-is passed to the shell or internally word-splitted according to whether it
-contains shell metacharacters.
-
-An optional flags hashref may be supplied as the last argument. The following
-flags are recognized:
-
-=over
-
-=item I<note>
-
-Message to be logged prior to executing the command, regardless of whether safe
-mode is enabled or not. (This is used as the message in B<action>.)
-
-=item I<intro>
-
-Message to be logged prior to executing the command.
-
-=item I<success>
-
-Message to be logged if the command's exit status was zero.
-
-=item I<failure>
-
-Message to be logged if the command failed. If omitted, a useful default is
-used instead.
-
-=item I<capture>
-
-If this is a scalar, controls whether the standard output and standard
-error streams from the child process should be captured. By default
-these streams are captured, but providing a false value for this flag
-will connect these streams to F</dev/null> instead. Command output
-is not logged.
-
-If this is a scalar reference, then the command output will be appended
-to the scalar (in addition to being logged)
-
-If this is an array reference, then the command output will be pushed
-on to the array (in addition to being logged)
-
-If this is a subrouting (code) reference, then the reference will be
-called with the command output as the only argument.
-
-=item I<timeout>, I<read_timeout>, I<wait_timeout>, I<kill_timeout>
-
-Various timeouts used when running the command.
-
-I<read_timeout> specifies the time to wait for data to be read from the process.
-By default, there is no read timeout.
-
-I<wait_timeout> specifies the time to wait for the process to exit after the
-pipe from it has closed. By default, there is no wait timeout.
-
-I<timeout> can be specified to set both I<read_timeout> and I<wait_timeout> at
-once.
-
-If the process does timeout, either during reading or waiting, then it is sent a
-SIGTERM signal. I<kill_timeout> specifies how long to wait for the process to
-exit after this timeout. If the process does not exit before this time it is
-sent a SIGKILL signal. By default, the kill timeout is 10 seconds.
-
-=item I<nosafe>
-
-This option instructions to ignore the safe flag. This is useful when a command can
-safely be run without anything changing. For example, if dmidecode was used to
-examine part of the system.
-
-=back
-
-=cut
-
-sub _timeout {
-    my ( $timeout, $code ) = @_;
-    unless ($timeout) {
-        $code->();
-        return 0;
-    }
-
-    my $alarm = alarm 0;
-    my $err   = do {
-        local $SIG{ALRM} = sub { die "alarm\n" };
-        alarm $timeout;
-        eval { $code->() };
-        $@;
-    };
-    alarm $alarm;
-    if ($err) {
-        die $err unless $err eq "alarm\n";
-        undef $@;
-        return 1;
-    }
-
-    return 0
-}
-
-{
-    my $nl = 1;
-
-    sub _debug_cmd;
-    sub _debug_cmd {
-        my $text = shift;
-        unless ( defined $text ) {
-            _debug_cmd "\n" unless $nl;
-            return;
-        }
-
-        return unless length $text;
-
-        debug lines_prefix( 'CMD: ', $text );
-
-        $nl = $text =~ m/\n\z/;
-        return 1
-    }
-}
-
-sub command {
-    my $flags = {};
-    $flags = pop @_ if @_ and ref $_[-1] eq 'HASH';
-
-    my @command = @_;
-    @command and defined $command[0]
-      or croak 'Usage: Conform::Core::IO::File::command($command, @args, \%flags)';
-
-    my $command = join ' ', @command;
-
-    $flags->{intro}   ||= '';
-    $flags->{success} ||= '';
-    $flags->{failure} ||= $flags->{failure} = "FAILED: '$command' failed";
-    $flags->{capture} = 1 unless exists $flags->{capture};
-    $flags->{timeout}      ||= undef;
-    $flags->{read_timeout} ||= $flags->{timeout};
-    $flags->{wait_timeout} ||= $flags->{timeout};
-    $flags->{kill_timeout} = 10 unless exists $flags->{kill_timeout};
-
-    local $safe_mode = $safe_mode;
-    $safe_mode = 0 if $flags->{nosafe};
-
-    my $result = action(
-        $flags->{note} => sub {
-            debug $flags->{intro} if $flags->{intro};
-
-            my $pipe = IO::Pipe->new()
-              or die "Could not create status pipe: $!\n";
-
-            my $cmd   = IO::File->new();
-            my $child = $cmd->open('-|');
-            defined $child
-              or die "Could not fork in command: $!\n";
-
-            local $SIG{PIPE} = 'IGNORE'
-                unless $child;
-
-            unless ($child) {
-
-                # detach from controlling tty
-                setsid;
-                open STDIN, '<', '/dev/null';
-                open STDOUT, '>', '/dev/null' unless $flags->{capture};
-                open STDERR, '>&STDOUT'; # in the future, open (STDERR, '>&', \*STDOUT)
-
-                my $ok = $pipe->writer
-                  and fcntl $pipe, F_SETFD, FD_CLOEXEC;
-
-                local $^W;
-                unless ( $ok and exec @command ) {
-                    select $pipe;
-                    $|++;
-                    print 0 + $!;
-                    POSIX::_exit(1);
-                }
-            }
-
-            local $_;
-            local $SIG{CHLD} = 'DEFAULT';
-
-            $pipe->reader
-              or die "Could not close write end of status pipe: $!\n";
-
-            my $result = '';
-            while (1) {
-                local $_;
-                my $read = $pipe->sysread( $_, 16 );
-                defined $read
-                  or die "Could not read from status pipe: $!\n";
-                $read
-                  or last;
-                $result .= $_;
-            }
-
-            undef $pipe;
-
-            if ( $result ne '' ) {
-                $! = 0 + $result;
-                die "Could not execute $command: $!\n";
-            }
-
-            my $timed_out = 1;
-            my $out       = length $flags->{intro};
-
-            my $s = IO::Select->new($cmd);
-            my $capture;
-            while ( my $line = $s->can_read( $flags->{read_timeout} ) ) {
-                unless ( $cmd->sysread( $line, 1024 ) ) {
-                    $timed_out = 0;
-                    last;
-                }
-
-                $capture .= $line;
-                _debug_cmd $line;    # puts the output on to the log
-
-                $out += length $line;
-            }
-
-            _debug_cmd;              # puts an end line on to the log
-
-            if (ref $flags->{capture}) {
-
-                push @{$flags->{capture}}, ( map {"$_\n"} split(/\n/,$capture))
-                    if ref $flags->{capture} eq 'ARRAY';
-
-                ${$flags->{capture}} = $capture
-                    if ref $flags->{capture} eq 'SCALAR';
-
-                $flags->{capture}->($capture)
-                    if ref $flags->{capture} eq 'CODE';
-
-                # i cant think of any obvious ways to handle other
-                # reference types
-
-           }
-
-           # Close our end of the pipe. Perl will wait to reap the process.
-           # If the process isn't reaped within the wait timeout, try a SIGTERM.
-           # If the process *still* isn't reaped within the kill timeout, send a
-           # SIGKILL.
-            {
-                my ( $signame, $signal ) = ( TERM => SIGTERM );
-                my $timeout = $flags->{wait_timeout};
-                my $code = sub { $cmd->close };
-
-                while ( _timeout($timeout, $code) ) {
-                    warn "[timeout -- sending SIG$signame]\n";
-                    kill $signal, $child;
-                    ( $signame, $signal ) = ( KILL => SIGKILL );
-                    $timeout = $flags->{kill_timeout};
-                    $code = sub { waitpid $child, 0 };
-                }
-
-            }
-
-            if ( $? >> 8 ) {
-                warn "$flags->{failure}  Exit code: " . ( $? >> 8 ) . "\n";
-            }
-            elsif ($?) {
-                warn "$flags->{failure}  Signal: " . ( $? & 0x7f ) . "\n";
-            }
-            elsif ( $flags->{success} ) {
-                debug $flags->{success};
-            }
-
-            return $?
-        }
-    );
-
-    return $safe_mode ? 0 : $result;
 }
 
 =item B<slurp_file>
@@ -578,203 +191,9 @@ sub slurp_file {
     defined $filename
       or croak 'Usage: Conform::Core::IO::File::slurp_file($filename)';
 
-    return slurp_http $filename if $filename =~ m(^http://);
-
     my $fh = IO::File->new( $filename, '<' )
       or die "Could not open $filename: $!\n";
     wantarray ? <$fh> : do { local $/; <$fh> };
-}
-
-sub _parse_time {
-    my ( $d, $m, $Y, $H, $M, $S ) =
-      $_[0] =~ m{^..., (\d\d) (...) (\d\d\d\d) (\d\d):(\d\d):(\d\d) GMT$}m
-      or return;
-
-    $Y -= 1900;
-
-    $m = {
-        jan => 0,
-        feb => 1,
-        mar => 2,
-        apr => 3,
-        may => 4,
-        jun => 5,
-        jul => 6,
-        aug => 7,
-        sep => 8,
-        oct => 9,
-        nov => 10,
-        dec => 11,
-      }->{ lc $m }
-      or return;
-
-    return timegm $S, $M, $H, $d, $m, $Y;
-}
-
-=item B<slurp_http>
-
-    $content = slurp_http $uri, \%flags;
-    @lines   = slurp_http $uri, \%flags;
-
-Retrieves the specified URI and returns its contents. In scalar context, returns
-the entire contents. In list context, returns a list of lines according to the
-C<$/> special variable (just like C<readline> or the C<< <EXPR> >> operator).
-
-Downloaded files are cached in F</var/cache/conform>.
-
-An optional flags hashref may be supplied as the last argument. The following
-flags are recognized:
-
-=over
-
-=item I<cache>
-
-Specifies an HTTP cache directory. If set to C<undef>, no cache directory
-is used. If not specified, a default system-wide cache directory is used.
-
-=item I<reload>
-
-If set, force a reload of the document from the origin server even if it is
-present in the HTTP cache.
-
-=back
-
-=cut
-
-sub safe_write_file;
-
-sub slurp_http {
-    my ( $uri, $flags ) = @_;
-    $flags ||= {};
-
-    defined $uri and ref $flags eq 'HASH'
-      or croak 'Usage: Conform::Core::IO::File::slurp_http($uri, \%flags)';
-
-    my $key = md5_hex $uri;
-    my $cache =
-      exists $flags->{cache}
-      ? $flags->{cache}
-      : HTTP_CACHE;
-
-    my ( $cache_file, $metadata_file );
-    if ( defined $cache ) {
-        my $key = md5_hex $uri;
-        $cache_file    = "$cache/$key";
-        $metadata_file = "$cache/$key.metadata";
-    }
-
-    my $now = time();
-
-    my $metadata;
-    if (    not $flags->{reload}
-        and defined $cache
-        and -f $cache_file
-        and -f $metadata_file )
-    {
-        $!        = 0;
-        $metadata = do $metadata_file;
-        if ( defined $metadata ) {
-            unless ( ref $metadata eq 'HASH' ) {
-                warn "Invalid metadata in $metadata_file\n";
-                undef $metadata;
-            }
-        }
-        else {
-            $!
-              ? warn "Could not read $metadata_file: $!\n"
-              : warn "Could not compile $metadata_file: $@\n";
-        }
-    }
-
-    if ($metadata) {
-        my $fresh;
-        if ( defined $metadata->{max_age} ) {
-            $fresh++ if ($now - $metadata->{requested} < $metadata->{max_age});
-        }
-        elsif ( defined $metadata->{expires} ) {
-            $fresh++ if ($now < $metadata->{expires});
-        }
-
-        return slurp_file $cache_file if $fresh;
-
-        delete $metadata->{expires};
-        delete $metadata->{max_age};
-    }
-
-    debug "Requesting $uri";
-
-    my $ua = LWP::UserAgent->new(
-        agent     => "conform/$VERSION",
-        timeout   => HTTP_TIMEOUT,
-        env_proxy => 1,  # use proxy settings in %env
-    );
-
-    my $req = HTTP::Request->new(GET => $uri);
-
-    if ($metadata) {
-        $req->header('If-Modified-Since' => time2str($metadata->{last_modified}))
-            if defined $metadata->{last_modified};
-
-        $req->header('If-None-Match' => $metadata->{etag})
-            if defined $metadata->{etag};
-    }
-
-    my $res = $ua->request($req);
-
-    $metadata ||= {};
-
-    my $code = $res->code;
-    $code == 200
-        or $code == 304
-        or die sprintf( 'Unexpected HTTP code: %d or %s, Status: %s'."\n", $code, $uri, $res->status_line);
-
-    my $body = $res->content;
-
-    if (    $code == 200
-        and $res->header('Content-Length') )
-    {
-        my $content_length = $res->header('Content-Length');
-        my $length         = length $body;
-        $content_length == $length
-          or die
-          "Content length mismatch; header has $content_length, got $length\n";
-    }
-
-    $metadata->{requested}     = $now;
-    $metadata->{last_modified} = _parse_time($res->header('Last-Modified'))
-      if $res->header('Last-Modified');
-    $metadata->{expires} = _parse_time($res->header('Expires'))
-      if $res->header('Expires');
-    # FIXME
-    # $metadata->{max_age} = 0 + $res->headers('Cache-Control')
-    #  if $res->headers('Cache-Control');
-    # WAS $headers =~ m{\015?\012 Cache-Control: (?:.*,)?[\040\t]* max-age=(\d+) }xmi;
-    $metadata->{etag} = $1
-      if ($res->header('Etag') and $res->header('Etag') =~ m/^"?([A-z\-]+)"?$/);
-
-    $metadata->{md5} = md5_hex $body;
-    $metadata->{sha1} = sha1_hex $body;
-
-    unless ( defined $cache ) {
-        return $body unless wantarray;
-        return $body unless defined $/;
-        if ( ref $/ eq 'SCALAR' ) {
-            my $len = 0 + ${$/};
-            return $body if $len <= 0;
-            return $body =~ m/(.{1,\Q$len\E})/sg;
-        }
-        return $body =~ m/(.+?(?:\z|\n\n))\n*/sg if $/ eq '';
-        return split m{(?<=\Q$/\E)}, $body;
-    }
-
-    {
-        local $safe_mode = 0;
-        safe_write_file( $metadata_file,
-          Data::Dumper->new( [$metadata] )->Terse(1)->Indent(0)->Dump);
-        safe_write_file( $cache_file, $body ) if $code == 200;
-    }
-
-    return slurp_file $cache_file;
 }
 
 =item B<safe_write>, B<safe_write_file>
@@ -814,6 +233,7 @@ sub dir_check;
 sub set_attr;
 sub get_attr;
 
+sub safe_write_file;
 sub safe_write {
     defined $_[0]
       or croak 'Usage: Conform::Core::IO::File::safe_write($filename, @lines, \%flags)';
@@ -827,7 +247,7 @@ sub safe_write {
     my %reset   = ();
     my $changed = 0;
 
-    if ( -f "$dirname/$filename" ) {
+    if ( -f "$dirname/$filename" && $rcs) {
 
         # work around a quirk in rcs < 5.7.33, which doesn't preserve
         # permissions
@@ -848,7 +268,7 @@ sub safe_write {
 
     $changed += safe_write_file @_, $flags;
 
-    if ( -f "$dirname/$filename" ) {
+    if ( -f "$dirname/$filename" && $rcs ) {
 
         # save attr
         %reset = get_attr( \*_ );
@@ -1257,7 +677,7 @@ a useful default is used instead.
 =item I<rcs>
 
 Whether version control should be applied to the file. If omitted, version
-control is applied.
+control is applied (if rcs is installed)
 
 =back
 
@@ -1293,6 +713,7 @@ sub text_install {
 
     $flags->{srcfn} ||= 'text';
     $flags->{rcs} = 1 unless exists $flags->{rcs};
+    $flags->{rcs} = 0 unless $rcs;
 
     # create containing directory if it doesn't exist
     ( my $path = $filename ) =~ s{/[^/]+$}{};
@@ -1331,8 +752,6 @@ sub text_install {
     return $changed
 }
 
-sub http_install;
-
 sub file_install {
     my ( $filename, $source, $cmd, $flags, @expr ) = @_;
     $flags ||= {};
@@ -1340,8 +759,6 @@ sub file_install {
     defined $filename and defined $source and ref $flags eq 'HASH'
       or croak
 'Usage: Conform::Core::IO::File::file_install($filename, $source, $cmd, \%flags, @expr)';
-
-    return http_install @_ if $source =~ m(^http://);
 
     my $caller_package = (caller)[0];
 
@@ -1369,44 +786,6 @@ sub file_install {
     }
 
     return text_install $filename, $text, $cmd, { srcfn => $source, %$flags };
-}
-
-sub http_install {
-    my ( $filename, $uri, $cmd, $flags, @expr ) = @_;
-    $flags ||= {};
-
-    defined $filename and defined $uri and ref $flags eq 'HASH'
-      or croak
-'Usage: Conform::Core::IO::File::http_install($filename, $uri, $cmd, \%flags, @expr)';
-
-    if ( $filename =~ m/^\Q@{[HTTP_CACHE]}/ ) {
-        _deprecated http_install =>
-          'Conform::Core::IO::File::http_install should not be used to write to HTTP cache';
-        return 1;
-    }
-
-    my $caller_package = (caller)[0];
-
-    my $text = '';
-    if (@expr) {
-        for ( slurp_http( $uri, $flags ) ) {
-            for my $e (@expr) {
-                if ( $e and ref $e eq 'CODE' ) {
-                    $e->();
-                }
-                else {
-                    eval "package $caller_package; { $e }; 1"
-                      or die $@;
-                }
-            }
-            $text .= $_;
-        }
-    }
-    else {
-        $text = slurp_http( $uri, $flags );
-    }
-
-    return text_install $filename, $text, $cmd, { srcfn => $uri, %$flags };
 }
 
 =item B<file_audit>
@@ -1610,7 +989,7 @@ sub __dir_list_filtered {
 
             ####
             # These will add match @files (due to recursion) even if the current '$file'
-            # won't be inluded, due to 'include', or 'exclude' filtering.
+            # won't be included, due to 'include', or 'exclude' filtering.
             if (   ( $recurse < 0 ) && ( !$match and $type eq 'include' )
                 || ( $match and $type eq 'exclude' ) )
             {
@@ -1780,168 +1159,6 @@ sub dir_list {
             }
         }
         return;
-      }, $flags;
-}
-
-=item B<dir_list_http>
-
-    @filenames = dir_list_http $uri, \%flags;
-    $filenames = dir_list_http $uri, \%flags;
-
-Retrieve a directory listing at $uri over http.
-Returns an array in list context and an arrayref in scalar context.
-Dies if $uri is not a directory.
-
-B<NB> '.' and '..' are never returned in a directory listing.
-
-The following flags are supported:
-
-=over
-
-=item I<include>
-
-A 'Regexp' or 'sub' that can be used to filter results.
-If a 'Regexp' is passed the full path name of each file (including the uri) will be matched against for
-inclusion in the returned listing.
-If a 'sub' is passed, it will be called with the following parameters in order:
-
-=over 4
-
-=item I<uripathname_filename>  The full name of the file I.e. $uri/$file
-
-=item I<uripathname> The path name. I.e. $uri
-
-=item I<filename> The file name. I.e. $file
-
-If the 'sub' returns a true value, the $file will be 'included' in the directory
-listing.
-
-If include is provided,  anything that doesn't match will be excluded.
-B<Please Note:> The default is to include everything.
-
-=back
-
-=item I<exclude>
-
-A 'Regexp' or 'sub' that can be used to filter results.
-If a 'Regexp' is passed the full path name (including the uri) of each file will be matched against for
-exclusion of the directory listing.
-If a 'sub' is passed, it will be called with the following parameters in order:
-
-=over 4
-
-=item I<uripathname_filename>  The full name of the file I.e. $uri/$file
-
-=item I<uripathname> The path name. I.e. $uri
-
-=item I<filename> The file name. I.e. $file
-
-If the 'sub' returns a true value, the $file will be 'excluded' from the directory
-listing.
-
-=back
-
-=item I<filter_order>
-
-A string, which controls the include/exclude behaviour. Valid values are
-'include,exclude', or 'exclude,include'.  The default is "I<include,exclude>".
-
-As the name suggests, depending on the value passed in, the include, or exclude
-tests will be done in that order.
-
-=item I<recurse>
-
-A boolean, which signifies whether or not to recurse into subdirectories.
-If 'true', the the full path name of each file in each subdirectory,
-depending on include,exclude filters will be included in the directory listing.
-
-=item I<recurse_first>
-
-A boolean, which controls the semantics of recursion and filtering.
-If allows you to 'include' files which would have otherwise been
-excluded due to filtering, by recursing into each directory before
-applying filtering rules.
-
-B<Please Note:> 'recurse_first' implies 'recurse', and only
-has an effect, when include or exclude filters are provided.
-
-=back
-
-=cut
-
-# deprecated
-sub _dir_list_http_parse_apache {
-    defined $_[0]
-      or croak "usage: _dir_list_http_parse_apache \$dir";
-    while ( $_[0] =~
-m/^(?:<tr><td valign="top">)?<img src="[^"]+" alt="[^"]+">(?:<\/td><td>| )?<a href="([^"]+)">(.+?)<\/a>(?:<\/td>| )/mg
-      )
-    {
-        my ( $filename, $name ) = ( $1, $2 );
-        next
-          if !$filename || $name =~ m/Parent Directory/i || $filename =~ m/[\?#]/;
-        $filename =~ s/([\r\n]).*$//;
-        $filename =~ s/\n//g;
-        $filename =~ s/\r//g;
-        return $filename;
-    }
-    return;
-}
-
-##
-# _dir_list_http_parse
-# Extract relative links from a HTML document.
-# Relative in this context means that the link
-# is a "file" under this "directory"
-sub _dir_list_http_parse {
-    defined $_[0]
-      or croak "usage: _dir_list_http_parse \$url";
-    while ( $_[0] =~ m/<a href\s*=\s*(['"])?([^\?#\1]+?)\1>/mgi ) {
-        my $link = $2;
-        next if !$link || $link =~ m{^/} || $link =~ m{^http};
-        if ( $_[-1]->{$link}++ ) {
-            debug "seen $link -- skipping";
-        }
-        return $link;
-    }
-    return;
-}
-
-sub dir_list_http {
-    my ( $uri, $flags ) = @_;
-    $flags ||= {};
-
-    my ( $scheme, $host, $port, $path ) =
-      $uri =~ m{^(https?)://([^:/]+)(?::(\d+))?(/.*)$}
-      or croak "Bad URI: $uri";
-
-    $path = "$path/" unless $path =~ m{/$};
-
-    $scheme and $host and $path
-      or croak
-      "Conform::Core::IO::File::dir_list_http: $uri is invalid or is not a directory";
-
-    my %seen = ();
-
-    return _dir_list $uri, sub {
-        my $html = eval { slurp_http $_[0], $flags; };
-        if ( my $err = $@ ) {
-            require Errno;
-            if ( $err =~ m/404/ ) {
-                $! = &Errno::ENOENT;
-            }
-            elsif ( $err =~ m/40[137]/ ) {
-                $! = &Errno::EACCES;
-            }
-            else {
-                warn "_dir_list $err";
-                $! = &Errno::EREMOTEIO;
-            }
-            return;
-        }
-        return $html;
-      }, sub {
-        _dir_list_http_parse @_, \%seen;
       }, $flags;
 }
 
@@ -2518,7 +1735,6 @@ transformations to apply to each file.
 
 =cut
 
-sub dir_install_http;
 sub dir_install;
 
 sub dir_install {
@@ -2558,77 +1774,6 @@ sub dir_install {
     }
 
     return $changed
-}
-
-=item B<dir_install_http>
-
-    $updated = dir_install_http $dirname, $uri, $cmd, \%flags, @expr;
-
-If safe mode is not enabled, recursively installs an entire directory tree of
-files from either the file system or from a URI. If any files were updated, the command C<$cmd> is executed and a true
-value is returned.
-
-If the flags hashref is specified, the following flags are recognized:
-
-=over
-
-=item I<filter>
-
-A coderef taking three parameters: the destination directory, the source
-directory, and a file that is about to be processed. If the coderef returns a
-true value then the file will be installed to the destination; otherwise the
-file is skipped.
-
-=back
-
-If C<@expr> is provided, it is passed along to B<file_install> as the list of
-transformations to apply to each file.
-
-=cut
-
-sub dir_install_http;
-
-sub dir_install_http {
-    my ( $dirname, $source, $cmd, $flags, @expr ) = @_;
-
-    defined $dirname and defined $source
-      or croak
-'Usage: Conform::Core::IO::File::dir_install_http ($dirname, $source, [$cmd, \%flags, @expr])';
-
-    my $filter;
-    $filter = $flags->{'filter'}
-      if $flags
-          and $flags->{'filter'}
-          and ref $flags->{'filter'} eq 'CODE';
-
-    my $changed = 0;
-    $changed += dir_check $dirname, $flags;
-
-    my $uri = $source;
-    $uri = "$uri/"
-      unless $uri =~ m{/$};
-
-    my @files = dir_list_http $uri, $flags;
-  FILE: for (@files) {
-        if ( not defined $filter or $filter->( $dirname, $source, $_ ) ) {
-            s/\/$// and do {
-                debug "dir_install_http recursively retrieving $source/$_";
-                $changed += dir_install_http "$dirname/$_", "$source/$_", undef,
-                  $flags, @expr
-                  unless /^(CV|RC)S$/;
-                next FILE;
-            };
-
-            $changed +=
-              http_install( "$dirname/$_", "$source/$_", undef, $flags, @expr );
-            die "$@" if $@;
-        }
-    }
-
-    command $cmd, { note => "Running '$cmd' to finish install of $dirname" }
-      if $cmd && $changed;
-
-    return $changed;
 }
 
 =item B<symlink_check>
@@ -2738,200 +1883,6 @@ sub this_tty
 
 }
 
-=item B<x509_cert>
-
-    $updated = x509_cert $cert, $key, \%attr;
-
-If safe mode is not enabled, generate a X.509 certificate and key. If the
-certificate or key changed, a true value is returned.
-
-The optional attribute hashref can be used to override attributes of
-the certificate:
-
-=over
-
-=item I<C>
-
-Country (default: "AU")
-
-=item I<ST>
-
-State (default: "New South Wales")
-
-=item I<L>
-
-Location (default: "Sydney")
-
-=item I<O>
-
-Organization (default: "Optus Administration Pty Limited")
-
-=item I<OU>
-
-Organizational unit (default: "Optus Internet")
-
-=item I<CN>
-
-Common name (default: the hostname)
-
-=item I<validity>
-
-Certificate validity in days (default: 365)
-
-=back
-
-=cut
-
-sub x509_cert {
-    my ( $cert, $key, $attr ) = @_;
-    $attr ||= {};
-
-    defined $cert and defined $key and ref $attr eq 'HASH'
-      or croak 'Usage: Conform::Core::IO::File::x509_cert($cert, $key, \%attr)';
-
-    $attr->{C}        ||= 'AU';
-    $attr->{ST}       ||= 'New South Wales';
-    $attr->{L}        ||= 'Sydney';
-    $attr->{O}        ||= 'Optus Administration Pty Limited';
-    $attr->{OU}       ||= 'Optus Internet';
-    $attr->{CN}       ||= hostname;
-    $attr->{validity} ||= 365;
-
-    if ( -f $key and -f $cert ) {
-
-        # If the certificate is NOT expiring soon, we check the certificate's
-        # subject and serial
-        if ( -M _ < $attr->{validity} - 21 ) {
-            my $pipe = IO::File->new(
-                "/usr/bin/openssl x509 -in $cert -serial -subject -noout |")
-              or die "Could not pipe from openssl: $!\n";
-            my %cur = map m{^(\w+)=\s*/?(.*)}, <$pipe>;
-            $pipe->close
-              or die $!
-              ? "Could not close pipe from openssl: $!\n"
-              : "Exit status from openssl: $?\n";
-
-            my $new = join '/', map { "$_=$attr->{$_}" }
-              grep { length $attr->{$_} } qw/C ST L O OU CN/;
-
-            # Certificate is OK if subject matches and serial is not zero
-            return 0 if $cur{subject} eq $new and $cur{serial} ne '00';
-        }
-    }
-
-    for ( $cert, $key ) {
-        ( my $path = $_ ) =~ s,/[^/]+$,,;
-        dir_check $path;
-    }
-
-    safe_write_file "$cert.config", <<EOT;
-[req]
-prompt=no
-distinguished_name=req_dn
-
-[req_dn]
-C=$attr->{C}
-ST=$attr->{ST}
-L=$attr->{L}
-O=$attr->{O}
-OU=$attr->{OU}
-CN=$attr->{CN}
-EOT
-
-    command '/usr/bin/openssl', 'req', '-new', '-x509', '-nodes',
-      -keyout     => "$key.temp",
-      -out        => "$cert.temp",
-      -days       => $attr->{validity},
-      -set_serial => time(),
-      -config     => "$cert.config",
-      { note => 'Generating X.509 certificate and key', };
-
-    action 'Installing certificate and key' => sub {
-        file_install $cert, "$cert.temp";
-        file_install $key,  "$key.temp";
-    };
-
-    safe sub {
-        for my $q ( "$cert.config", "$cert.temp", "$key.temp" ) {
-            unlink $q
-              or die "Could not unlink $cert.config: $!\n";
-        }
-    };
-
-    return 1
-}
-
-=back
-
-=head1 DEPRECATED FUNCTIONS
-
-=over
-
-=item B<warning>, B<scream>
-
-    warning @messages;
-    scream  @messages;
-
-Equivalent to:
-
-    warn @messages;
-
-and:
-
-    die  @messages;
-
-respectively.
-
-=cut
-
-sub warning {
-    _deprecated warning =>
-      "Conform::Core::IO::File::warning is deprecated; use warn instead";
-    carp @_;
-    ();
-}
-
-sub scream {
-    _deprecated scream => "Conform::Core::IO::File::scream is deprecated; use die instead";
-    croak @_;
-}
-
-=item B<file_install_http>
-
-    $updated = file_install_http $uri, $filename;
-
-Equivalent to:
-
-    $updated = http_install $filename, $uri;
-
-Note that the order of arguments is reversed.
-
-=cut
-
-sub file_install_http {
-    my ( $uri, $file ) = @_;
-
-    _deprecated
-      file_install_http =>
-      "Conform::Core::IO::File::file_install_http(\$uri, \$filename) is deprecated;\n",
-      "use Conform::Core::IO::File::http_install(\$filename, \$uri, ...) instead\n",
-      "(note the order of arguments)\n";
-
-    return http_install $file, $uri;
-}
-
-=item B<inetd_service>
-
-    inetd_service @args;
-
-This function has been removed.
-
-=cut
-
-sub inetd_service {
-    _deprecated inetd_service => 'Conform::Core::IO::File::inetd_service is deprecated';
-    croak 'Conform::Core::IO::File::inetd_service: No replacement function available';
-}
 
 =back
 
