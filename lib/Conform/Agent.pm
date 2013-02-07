@@ -99,20 +99,15 @@ has 'site' => (
     required => 1,
 );
 
-=head2  tasks
-
-=cut
-
 =head2  init
 
 =cut
 
 sub init {
     my $self = shift;
-    
-    my $runtime = $self->runtime;
-    my $site    = $self->site;
 
+    Trace;
+    
     $runtime->boot;
 
     $self->compile;
@@ -122,7 +117,8 @@ sub schedule {
     my $self = shift;
     my $name = shift;
     my $action = shift;
-    Trace "%s", $action;
+
+    Trace "%s %s", $name, $action;
 
     Debug("scheduling action @{[$name]} -> @{[ dump($action) ]}");
 
@@ -134,26 +130,41 @@ sub identify_action {
     my $name = shift;
     my $hash = shift;
 
-    $log->debug("identify_tasks for $name");
+    $log->debug("identify_action for $name");
     for my $tag (grep !/ISA/, keys %$hash) {
         my $value = $hash->{$tag};
         $log->debug("identifying task $tag");
 
         my $provider = $self->runtime->find_provider(Action => $tag);
-        Debug "found provider %s for %s with %s tag = %s", dump($provider), $name, dump($value), $tag;
         if ($provider) {
+
+            Debug "found provider %s for %s with %s tag = %s",
+                   dump($provider),
+                   $name, dump($value),
+                   $tag;
+
             if (ref $value eq 'HASH') {
+
                 for my $id (keys %$value) {
+
                     my $agent   = $self;
                     my $runtime = $self->runtime;
                     my $args    = $value->{$id};
                     my $name    = $provider->name();
 
                     my $action =
-                        Conform::Action->new('id' => $id,
-                                             'args' => $value->{$id},
-                                             'name' => $provider->name(),
-                                             'impl' => sub { $provider->impl->($id, $args, @_, $agent, $runtime) });
+                       Conform::Action->new('id' => $id,
+                                            'args' => $value->{$id},
+                                            'name' => $provider->name(),
+                                            'impl' => sub {
+                                                        $provider->impl
+                                                                ->($id,
+                                                                   $args,
+                                                                   @_,
+                                                                   $agent,
+                                                                   $runtime)
+                                                    }
+                                            );
 
                     $self->schedule($tag => $action);
                 }
@@ -164,22 +175,31 @@ sub identify_action {
 
 sub compile {
     my $self = shift;
+    
+    Trace;
 
     my $site    = $self->site;
     my $runtime = $self->runtime;
 
-    # collect all tasks
-
-    $site->walk($runtime->iam,  sub { $self->identify_action (@_) });
-
+    $self->site->walk
+            ($self->runtime->iam, sub { $self->identify_action (@_) });
 }
 
 sub conform {
     my $self = shift;
 
+    Trace;
+
     Debug "Scheduler has %d jobs", $self->scheduler->pending->size;
-    
-    $self->scheduler->run();
+
+    while ($scheduler->has_work) {
+        $self->scheduler->run();
+    }
+
+    Debug "Scheduler has %d pending jobs",   $self->scheduler->pending->size;
+    Debug "Scheduler has %d waiting jobs",   $self->scheduler->waiting->size;
+    Debug "Scheduler has %d completed jobs", $self->scheduler->completed->size;
+    Debug "Scheduler has %d runnable jobs",  $self->scheduler->runnable->size;
 
 }
 

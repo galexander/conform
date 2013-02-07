@@ -50,6 +50,18 @@ has 'args' => (
     required => 1,
 );
 
+sub execute {
+    my $self = shift;
+    my $provider = $self->impl;
+    if (ref $provider eq 'CODE') {
+          # $provider->($self, $self->id, $self->args);
+          $provider->($self, @_);
+    } else {
+        $provider->impl->($self->id, $self->args);
+    }
+}
+
+
 sub BUILD {
     my $self = shift;
     $self;
@@ -77,14 +89,26 @@ sub satisfies {
     return $checked;
 }
 
+has 'impl' => (
+    is => 'rw',
+);
+
 
 =head1  SEE ALSO
-
-L<Conform::Directive>
 
 =head1  AUTHOR
 
 Gavin Alexander (gavin.alexander@gmail.com)
+
+=head1  COPYRIGHT
+
+Copyright 2012 (Gavin Alexander)
+
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
+
+The full text of the license can be found in the
+LICENSE file included with this module
 
 =cut
 

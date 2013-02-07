@@ -124,10 +124,6 @@ has 'require' => (
     isa => 'ArrayRef',
 );
 
-has 'impl' => (
-    is => 'rw',
-);
-
 
 1;
 

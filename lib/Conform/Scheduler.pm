@@ -29,8 +29,6 @@ use Conform::Queue;
 use Data::Dumper;
 use Conform::Debug qw(Debug Trace);
 
-# $Data::Dumper::Deparse++;
-
 has 'pending'   => (
     is      => 'rw',
     isa     => 'Conform::Queue',
@@ -57,7 +55,7 @@ has 'runnable' => (
 
 =over 4
 
-=item * actions
+=item * has_work 
 
 Returns true if there are outstanding actions in the 'pending' queue,
 false otherwise.
@@ -66,7 +64,7 @@ false otherwise.
 
 =cut
 
-sub actions {
+sub has_work {
     my $self = shift;
     return $self->pending->size() > 0;
 }
