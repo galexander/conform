@@ -111,7 +111,7 @@ EOPLUGIN
             my @names = ();
 
             ATTR: for my $attr (@list) {
-                if ($attr =~ /^\Q$type\E(?!\((\S+)\))?$/) {
+                if ($attr =~ /^\Q$type\E(?:\((\S+)\))?$/) {
                     my $name = $1 || $field;
                     push @names, $name
                         unless grep /^$name$/, @names;
@@ -123,15 +123,19 @@ EOPLUGIN
                     unless grep /^$field$/, @names;
             }
 
-            #if ($field =~ /^[A-Z][a-z]+/) {
-            #    push @names, $field
-            #        unless grep /^$field$/, @names;
-            #}
-
             return @names;
         }
 
         my $type = $self->get_plugin_type;
+
+        sub _parse_attr {
+            my @attr;
+            for (@_) {
+                /^(\S+?)(?:\((\S+)\))?$/ and
+                    push @attr, [ $1, $2 ];
+            }
+            return \@attr;
+        }
 
         no strict 'refs';
         for my $field (keys %{"${plugin}\::"}) {
@@ -144,7 +148,10 @@ EOPLUGIN
                 my $object = $plugin_type->new(name => $name,
                                                impl => \&{"${plugin}\::${field}"},
                                                id   => $plugin->getId(),
-                                               version => $plugin->getVersion() ||'');
+                                               version => $plugin->getVersion() ||'',
+                                               attr => _parse_attr @attr);
+
+                print "@{[dump($object)]}\n";
                 $self->register($object);
             }
         }

@@ -8,7 +8,10 @@ use Conform::Plugin;
 use Conform::Core::IO::File qw(file_install text_install);
 use Conform::Core::IO::Command qw(command);
 
-sub File_install : Action {
+sub File_install
+    : Action
+    : ID(src)
+    : ARGS(STRUCT) {
     Debug "File_install(%s)", dump(\@_);
     my ($file, $args, $action, $agent, $runtime) = @_;
 
@@ -37,7 +40,10 @@ sub Dir_install : Action {
     Trace "Dir";
 }
 
-sub Command : Action {
+sub Command 
+    : Action(Command)
+    : Alias(Cmd)
+    : Depend($runtime.os=linux) {
     my $cmd  = shift;
     my $args = shift;
 

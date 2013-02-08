@@ -6,6 +6,10 @@ my %Id;
 my %Name;
 my %Version;
 
+use Mouse;
+
+has 'attr' => ( is => 'rw', isa => 'ArrayRef' );
+
 
 sub import {
     my $caller = caller;
