@@ -28,7 +28,6 @@ use Conform::Action;
 
 has 'id' => (
     is => 'rw',
-    isa => 'Str',
 );
 
 has 'name' => (
@@ -49,7 +48,6 @@ has 'dependencies' => (
 
 has 'args' => (
     is => 'rw',
-    isa => 'HashRef',
     required => 1,
 );
 

@@ -6,15 +6,18 @@ use Data::Dump qw(dump);
 use Conform::Plugin;
 
 use Conform::Core::IO::File qw(file_install text_install);
+use Conform::Core::IO::Command qw(command);
 
 sub File_install : Action {
     Debug "File_install(%s)", dump(\@_);
     my ($file, $args, $action, $agent, $runtime) = @_;
 
-    Debug "File = $file, Args = %s", dump ($args);
+    Debug "File = @{[$file||'']}, Args = %s", dump ($args);
     Debug "Self  = %s", dump($action);
     Debug "Agent = %s", dump($agent);
     Debug "Runtime = %s", dump($runtime);
+
+    file_install "$file", $args->{src}, $args->{cmd}, $args;
     
 }
 
@@ -39,6 +42,8 @@ sub Command : Action {
     my $args = shift;
 
     Trace "Command";
+
+    command $cmd;
 }
 
 

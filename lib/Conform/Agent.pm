@@ -125,6 +125,116 @@ sub schedule {
     $self->scheduler->schedule($action);
 }
 
+sub _make_action {
+    my $self        = shift;
+    my $provider    = shift;
+    my $tag         = shift;
+    my $value       = shift;
+
+    my $agent   = $self;
+    my $name    = $provider->name();
+
+    return () unless defined $value;
+
+    my $_scalar_action = sub {
+        my $scalar = shift;
+        return Conform::Action->new(
+                'id' => undef,
+                'args' => $scalar,
+                'name' => $name,
+                'impl' => sub {
+                    $provider->impl->($scalar,(shift @_), $agent)
+                });
+    };
+
+    my $_hash_action = sub {
+        my $hash = shift;
+        my @action = ();
+        for my $id (keys %$hash) {
+            my $args    = $hash->{$id}; 
+            my $action =
+                Conform::Action->new(
+                            'id' => $id,
+                            'args' => $hash->{$id},
+                            'name' => $name,
+                            'impl' => sub {
+                                $provider->impl->($id,
+                                                  $args,
+                                                  (shift @_),
+                                                  $agent)
+                            }
+                );
+
+            push @action, $action;
+        }
+
+        return @action;
+    };
+
+    my $_array_action = sub {
+        my $array = shift;
+
+        if (scalar @$array % 2 == 0
+                && !ref $array->[0]
+                &&  ref $array->[1]
+                &&  ref $array->[1] eq 'HASH') {
+
+            my @action = ();
+
+            for (my $i = 0; $i < scalar @$array; $i+=2) {
+                my $id = $array->[$i];
+                my $args = $array->[$i+1];
+                push @action, Conform::Action->new(
+                                'id' => $id,
+                                'args' => $args,
+                                'name' => $name,
+                                'impl' => sub {
+                                    $provider->impl->($id, $args, (shift @_), $agent)
+                                });
+            }
+    
+            return @action;
+         }
+
+        return (Conform::Action->new(
+                    'id' => undef,
+                    'args' => $array,
+                    'name' => $provider->name(),
+                    'impl' => sub {
+                        $provider->impl->($array,(shift @_), $agent)
+                    }));
+    };
+
+    return $_scalar_action->($value)
+            if !ref $value;
+
+    return $_hash_action->($value)
+            if ref $value eq 'HASH';
+
+    my @return;
+
+    if (ref $value eq 'ARRAY') {
+        VALUE: for my $arg (@$value) {
+            unless (ref $arg) {
+                push @return, $_scalar_action->($arg);
+                next VALUE;
+            }
+            if (ref $arg eq 'HASH') {
+                push @return, $_hash_action->($arg);
+                next VALUE;
+            }
+            if (ref $arg eq 'ARRAY') {
+                push @return, $_array_action->($arg);
+                next VALUE;
+            }
+        }
+    }
+
+    return @return;
+       
+
+}
+
 sub identify_action {
     my $self = shift;
     my $name = shift;
@@ -143,32 +253,11 @@ sub identify_action {
                    $name, dump($value),
                    $tag;
 
-            if (ref $value eq 'HASH') {
+            my @action = $self->_make_action($provider, $tag, $value);
 
-                for my $id (keys %$value) {
-
-                    my $agent   = $self;
-                    my $runtime = $self->runtime;
-                    my $args    = $value->{$id};
-                    my $name    = $provider->name();
-
-                    my $action =
-                       Conform::Action->new('id' => $id,
-                                            'args' => $value->{$id},
-                                            'name' => $provider->name(),
-                                            'impl' => sub {
-                                                        $provider->impl
-                                                                ->($id,
-                                                                   $args,
-                                                                   @_,
-                                                                   $agent,
-                                                                   $runtime)
-                                                    }
-                                            );
-
-                    $self->schedule($tag => $action);
-                }
-            }
+            $self->schedule($tag, $_)
+                for @action;
+        
         }
     }
 }

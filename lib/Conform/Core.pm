@@ -67,6 +67,7 @@ use strict;
 use Carp;
 use Conform::Debug qw(Debug);
 use Conform::Core::Netgroups;
+use Data::Dumper;
 
 use Hash::Merge ();
 
@@ -130,9 +131,18 @@ our $safe_write_msg = "Changed by $0";
 our $debug          = $Conform::Debug::DEBUG;
 our $log_messages   = "";
 
-sub debug { Debug @_ }
-sub note  { Debug "Note: ", @_ }
-sub lines_prefix { "" }
+sub debug { print @_ }
+sub note  { print @_ }
+sub lines_prefix {
+    my $prefix = shift || '';
+    my $lines = join '', @_;
+    $lines =~ s/\n+\z//;    # zaps trailing endlines
+    my @l = map { m/^\Q$prefix/ ? "$_\n" : "$prefix$_\n" }
+      split /[\r\n]+/, $lines;
+
+    return wantarray ? @l : join( '', @l );
+}
+
 
 =head1 FUNCTIONS
 
