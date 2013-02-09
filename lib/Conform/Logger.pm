@@ -22,7 +22,7 @@ Conform::Logger
 
 extends 'Log::Any';
 
-use Exporter qw(import);
+# use Exporter qw(import);
 
 use Log::Any::Adapter;
 
@@ -47,6 +47,7 @@ our @EXPORT_OK = (qw(
     alertf
     emergency
     emergencyf
+    $log
 ));
     
     

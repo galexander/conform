@@ -52,22 +52,21 @@ use HTTP::Date qw( time2str );
 use Text::Template;
 use Conform::Debug qw(Debug);
 use Conform::Core qw(
-                    debug
                     action
                     timeout
                     safe
                     $safe_mode
-                    $debug
                     $safe_write_msg
                     );
 
+use Conform::Logger qw($log);
 use Conform::Core::IO::Command qw(command);
 use Conform::Core::IO::File qw(safe_write safe_write_file dir_check);
 
 use base qw( Exporter );
 use vars qw(
   $VERSION %EXPORT_TAGS @EXPORT_OK
-  $debug $safe_mode $safe_write_msg $log_messages $warnings
+  $safe_mode $safe_write_msg $log_messages 
 );
 $VERSION     = (qw$Revision: 1.127 $)[1];
 %EXPORT_TAGS = (
@@ -226,14 +225,14 @@ sub slurp_http {
         $metadata = do $metadata_file;
         if ( defined $metadata ) {
             unless ( ref $metadata eq 'HASH' ) {
-                warn "Invalid metadata in $metadata_file\n";
+                $log->warn("Invalid metadata in $metadata_file");
                 undef $metadata;
             }
         }
         else {
             $!
-              ? warn "Could not read $metadata_file: $!\n"
-              : warn "Could not compile $metadata_file: $@\n";
+              ? $log->warn("Could not read $metadata_file: $!")
+              : $log->warn("Could not compile $metadata_file: $@");
         }
     }
 
@@ -252,7 +251,7 @@ sub slurp_http {
         delete $metadata->{max_age};
     }
 
-    debug "Requesting $uri";
+    $log->debug("Requesting $uri");
 
     my $ua = LWP::UserAgent->new(
         agent     => "conform/$VERSION",
@@ -483,7 +482,7 @@ sub _dir_list_http_parse {
         my $link = $2;
         next if !$link || $link =~ m{^/} || $link =~ m{^http};
         if ( $_[-1]->{$link}++ ) {
-            debug "seen $link -- skipping";
+            $log->debug("seen $link -- skipping");
         }
         return $link;
     }
@@ -517,7 +516,7 @@ sub dir_list_http {
                 $! = &Errno::EACCES;
             }
             else {
-                warn "_dir_list $err";
+                $log->warn("_dir_list $err");
                 $! = &Errno::EREMOTEIO;
             }
             return;
@@ -582,7 +581,7 @@ sub dir_install_http {
   FILE: for (@files) {
         if ( not defined $filter or $filter->( $dirname, $source, $_ ) ) {
             s/\/$// and do {
-                debug "dir_install_http recursively retrieving $source/$_";
+                $log->debug("dir_install_http recursively retrieving $source/$_");
                 $changed += dir_install_http "$dirname/$_", "$source/$_", undef,
                   $flags, @expr
                   unless /^(CV|RC)S$/;

@@ -35,7 +35,8 @@ use IO::Pipe;
 use IO::Socket;
 use IO::Select;
 
-use Conform::Core qw(action debug note lines_prefix $debug $log_messages timeout safe $debug $safe_mode);
+use Conform::Core qw(action lines_prefix timeout safe $safe_mode);
+use Conform::Logger qw($log);
 
 use base qw( Exporter );
 use vars qw(
@@ -170,7 +171,7 @@ examine part of the system.
 
         return unless length $text;
 
-        debug lines_prefix( 'CMD: ', $text );
+        $log->debug(lines_prefix( 'CMD: ', $text ));
 
         $nl = $text =~ m/\n\z/;
         return 1
@@ -203,7 +204,7 @@ sub command {
 
     my $result = action(
         $flags->{note} => sub {
-            debug $flags->{intro} if $flags->{intro};
+            $log->debug($flags->{intro}) if $flags->{intro};
 
             my $pipe = IO::Pipe->new()
               or die "Could not create status pipe: $!\n";
@@ -305,7 +306,7 @@ sub command {
                 my $code = sub { $cmd->close };
 
                 while ( timeout($timeout, $code) ) {
-                    warn "[timeout -- sending SIG$signame]\n";
+                    $log->warn("[timeout -- sending SIG$signame]");
                     kill $signal, $child;
                     ( $signame, $signal ) = ( KILL => SIGKILL );
                     $timeout = $flags->{kill_timeout};
@@ -315,13 +316,13 @@ sub command {
             }
 
             if ( $? >> 8 ) {
-                warn "$flags->{failure}  Exit code: " . ( $? >> 8 ) . "\n";
+                $log->warn("$flags->{failure}  Exit code: " . ( $? >> 8 ));
             }
             elsif ($?) {
-                warn "$flags->{failure}  Signal: " . ( $? & 0x7f ) . "\n";
+                $log->warn("$flags->{failure}  Signal: " . ( $? & 0x7f ));
             }
             elsif ( $flags->{success} ) {
-                debug $flags->{success};
+                $log->debug($flags->{success});
             }
 
             return $?

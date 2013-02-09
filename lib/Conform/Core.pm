@@ -10,15 +10,9 @@ Conform::Core - Conform Core host configuration functions
 
     use Conform::Core;
 
-    $Conform::Core::debug          = $debug;
     $Conform::Core::safe_mode      = $safe_mode;
     $Conform::Core::safe_write_msg = $message;
     $log_messages = $Conform::Core::log_messages;
-
-    debug @messages;
-    note  @messages;
-    warn  @messages;
-    die   @messages;
 
     $result  = action $message => \&code, @args;
     $result  = safe   \&code, @args;
@@ -79,7 +73,7 @@ $VERSION = (qw$Revision: 1.54 $)[1];
     all => [
         qw(
           action timeout safe note debug lines_prefix $log_messages
-          $debug $safe_mode $safe_write_msg
+          $safe_mode $safe_write_msg
           comma_or_arrayref
           validate
           type_list i_isa_class i_isa_host
@@ -128,8 +122,6 @@ The log message used when checking files into RCS.
 
 our $safe_mode      = 0;
 our $safe_write_msg = "Changed by $0";
-our $debug          = $Conform::Debug::DEBUG;
-our $log_messages   = "";
 
 sub debug { print @_ }
 sub note  { print @_ }

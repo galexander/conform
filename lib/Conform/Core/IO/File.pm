@@ -89,6 +89,8 @@ use Conform::Core qw(
                     $safe_write_msg
                     );
 
+use Conform::Logger qw($log);
+
 use Conform::Core::IO::Command qw(command);
 
 use base qw( Exporter );
@@ -1857,7 +1859,7 @@ sub this_tty
     #The command we are going to run is read only, non change making command.
     #Store the safe value away and then set it to 0 so that the command will run.
 
-    debug 'Suspending safe mode while determining the TTY' if $safe_mode;
+    $log->debug('Suspending safe mode while determining the TTY') if $safe_mode;
     local $safe_mode = 0;
 
     command( "ps -o tty= $$", # this has ps look at our PID ($$) and return our tty (without column headers), its fishlogin proof!
