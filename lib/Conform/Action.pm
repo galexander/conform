@@ -46,6 +46,10 @@ has 'dependencies' => (
     default => sub { [] },
 );
 
+has 'provider' => (
+    is => 'rw',
+);
+
 has 'args' => (
     is => 'rw',
     required => 1,

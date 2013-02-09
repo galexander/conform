@@ -13,6 +13,12 @@ has 'attr' => ( is => 'rw', isa => 'ArrayRef' );
 
 sub import {
     my $caller = caller;
+    my @args = splice(@_, 1, $#_);
+    if (@args && @args %2 == 0) {
+        my %args = @args;
+        $caller = delete $args{package}
+                    if exists $args{package};
+    }
     no strict 'refs';
     no warnings 'redefine';
     *{"${caller}\::MODIFY_CODE_ATTRIBUTES"}

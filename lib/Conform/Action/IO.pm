@@ -3,7 +3,7 @@ use Mouse;
 use Conform::Debug qw(Trace Debug);
 use Data::Dump qw(dump);
 
-use Conform::Plugin;
+use Conform::Action::Plugin;
 
 use Conform::Core::IO::File qw(file_install text_install);
 use Conform::Core::IO::Command qw(command);
@@ -21,7 +21,6 @@ sub File_install
     Debug "Runtime = %s", dump($runtime);
 
     file_install "$file", $args->{src}, $args->{cmd}, $args;
-    
 }
 
 sub Text_install : Action {
