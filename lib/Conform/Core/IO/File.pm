@@ -13,9 +13,6 @@ Conform::Core::IO::File - Conform common io/file utility functions
     $content = slurp_file $filename;
     @lines   = slurp_file $filename;
 
-    $content = slurp_http $uri, \%flags;
-    @lines   = slurp_http $uri, \%flags;
-
     safe_write      $filename, @lines, \%flags;
     safe_write      $filename, \*FH,   \%flags;
     safe_write_file $filename, @lines, \%flags;
@@ -89,15 +86,10 @@ use Conform::Core qw(
                     timeout
                     safe
                     $safe_mode
-                    $debug
                     $safe_write_msg
                     );
 
 use Conform::Core::IO::Command qw(command);
-
-sub debug { Debug @_ };
-sub note { Debug "note", @_ };
-sub lines_prefix { "" }
 
 use base qw( Exporter );
 use vars qw(
