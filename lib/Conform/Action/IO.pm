@@ -21,6 +21,10 @@ sub File_install
     Debug "Runtime = %s", dump($runtime);
 
     file_install "$file", $args->{src}, $args->{cmd}, $args;
+
+    Action 'Dir_install' => { 'dir' => 'foo' };
+
+    print "Agent(Site) = ", dump($agent->site);
 }
 
 sub Text_install : Action {

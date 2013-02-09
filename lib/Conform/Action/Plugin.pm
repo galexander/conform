@@ -11,6 +11,7 @@ sub import {
     my $caller  = caller;
 
     no strict 'refs';
+    *{"${caller}\::Action"} = \&Action;
     *{"${caller}\::i_isa"} = \&i_isa;
     *{"${caller}\::i_isa_fetchall"} = \&i_isa_fetchall;
     *{"${caller}\::i_isa_mergeall"} = \&i_isa_mergeall;
@@ -42,6 +43,26 @@ sub actions {
 
     return () unless defined $value;
 
+    my $Impl = sub {
+        use Tie::Watch;
+        no strict 'vars';
+        #use vars qw/%m/;
+        #local *m = $agent->site->nodes;
+
+        my @changed = ();
+
+        use Data::Dumper;
+        my $_store = sub {
+            my $self = shift;
+            
+            print Dumper(\@_);
+            
+        };
+        
+        my $watch = Tie::Watch->new(-variable => $agent->site->nodes->{$agent->runtime->iam}, -debug => 1, -store => $_store);
+        my $result = $self->impl->(@_);
+    };
+
     my $_scalar_action = sub {
         my $scalar = shift;
         return Conform::Action->new(
@@ -50,7 +71,8 @@ sub actions {
                 'name' => $name,
                 'provider' => $self,
                 'impl' => sub {
-                    $self->impl->($scalar,(shift @_), $agent)
+                    # $Impl->($scalar,(shift @_), $agent)
+                    $Impl->($scalar,(shift @_), $agent)
                 });
     };
 
@@ -66,7 +88,7 @@ sub actions {
                             'name' => $name,
                             'provider' => $self,
                             'impl' => sub {
-                                $self->impl->($id,
+                                $Impl->($id,
                                                   $args,
                                                   (shift @_),
                                                   $agent)
@@ -98,7 +120,7 @@ sub actions {
                                 'name' => $name,
                                 'provider' => $self,
                                 'impl' => sub {
-                                    $self->impl->($id, $args, (shift @_), $agent)
+                                    $Impl->($id, $args, (shift @_), $agent)
                                 });
             }
     
@@ -111,7 +133,7 @@ sub actions {
                     'name' => $self->name(),
                     'provider' => $self,
                     'impl' => sub {
-                        $self->impl->($array,(shift @_), $agent)
+                        $Impl->($array,(shift @_), $agent)
                     }));
     };
 
@@ -141,6 +163,21 @@ sub actions {
     }
 
     return @return;
+}
+
+sub Action {
+    my ($runtime, $site);
+    if (blessed $_[0]
+         and $_[0]->isa('Conform::Action')) {
+            ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);
+            shift;
+    } else {
+        ($runtime, $site) = ($agent->runtime, $agent->site);
+    }
+
+    my $action  = shift;
+    print "Adding action $action\n";
+    push @{$site->nodes->{$runtime->iam}->{$action}}, @_;
 }
 
 
