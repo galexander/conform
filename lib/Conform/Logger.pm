@@ -20,11 +20,12 @@ Conform::Logger
 
 =cut
 
-extends 'Log::Any';
-
-# use Exporter qw(import);
-
 use Log::Any::Adapter;
+
+use base 'Log::Any';
+use Exporter qw(import);
+
+use Log::Any qw($log);
 
 our @EXPORT_OK = (qw(
     trace
@@ -49,8 +50,6 @@ our @EXPORT_OK = (qw(
     emergencyf
     $log
 ));
-    
-    
 
 sub set {
     shift if $_[0] eq __PACKAGE__;
