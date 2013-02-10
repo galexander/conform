@@ -16,7 +16,7 @@ sub import {
     *{"${caller}\::Action"}         = \&Action;
     *{"${caller}\::PushAction"}     = \&PushAction;
     *{"${caller}\::MergeAction"}    = \&MergeAction;
-    *{"${caller}\::named_args"}     = \&named_args;;
+    *{"${caller}\::named_args"}     = \&named_args;
     *{"${caller}\::i_isa"}          = \&i_isa;
     *{"${caller}\::i_isa_fetchall"} = \&i_isa_fetchall;
     *{"${caller}\::i_isa_mergeall"} = \&i_isa_mergeall;
@@ -216,9 +216,11 @@ sub Action {
     }
 }
 
-sub named_args(\@$) {
+sub named_args {
     my($params, $defaults) = @_;
-    return undef unless $params && @$params;
+    return undef unless $params;
+    $params = [ $params ]
+        if (ref $params eq 'HASH' || !ref $params);
     return $params->[0] if ref $params->[0] eq 'HASH' && @$params == 1;
     my $return = {};
   
