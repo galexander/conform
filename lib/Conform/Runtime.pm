@@ -27,11 +27,31 @@ has data => (
     is => 'rw',
 );
 
+has 'ancestors' => (
+    'is' => 'rw',
+    'isa' => 'ArrayRef',
+);
+
 has providers => (
     is => 'rw',
     isa => 'HashRef',
     default => sub { {} },
 );
+
+sub _traverse_inheritance;
+sub _traverse_inheritance {
+    my $package = shift;
+    my $method  = shift;
+
+    $method->($package);
+
+    no strict 'refs';
+    if (defined @{"${package}\::ISA"}) {
+        for my $isa (@{"${package}\::ISA"}) {
+            _traverse_inheritance $isa, $method;
+        }
+    }
+}
 
 sub boot {
     my $self = shift;
@@ -39,6 +59,19 @@ sub boot {
     Trace;
 
     Debug "Booting runtime %s %s", $self->getId(), $self->getVersion();
+
+    my $package = blessed $self;
+    Debug "Determining ancestory for @{[ $package ]}";
+
+    my @runtimes = ();
+    _traverse_inheritance $package, sub {
+        push @runtimes, $_[0]
+            if $_[0]->isa(__PACKAGE__);
+    };
+
+    Debug "Ancestory = %s", dump(\@runtimes);
+    
+    $self->ancestors(\@runtimes);
 
     Debug "Loading action providers for %s", blessed $self;
     $self->_discover_providers
@@ -105,20 +138,7 @@ sub find_provider {
     return undef;
 }
 
-sub _inheritance;
-sub _inheritance {
-    my $package = shift;
-    my $method  = shift;
 
-    $method->($package);
-
-    no strict 'refs';
-    if (defined @{"${package}\::ISA"}) {
-        for my $isa (@{"${package}\::ISA"}) {
-            _inheritance $isa, $method;
-        }
-    }
-}
 
 sub _discover_providers {
     my $self = shift;
@@ -128,20 +148,11 @@ sub _discover_providers {
 
     my $package = blessed $self;
 
+
     Debug "finding %s provider for %s",
                 lc $type,
                 $package; 
-
-    my @runtimes = ();
-
-     _inheritance $package, sub {
-        my $package = shift;
-        push @runtimes, $package
-            if $package->isa(__PACKAGE__);
-    };
-
-    Debug "Runtimes = %s", dump(\@runtimes);
-
+    
     my $loader = "Conform::${type}::PluginLoader";
     eval "use $loader;";
     die "$@" if $@;

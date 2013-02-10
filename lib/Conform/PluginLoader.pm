@@ -151,7 +151,6 @@ EOPLUGIN
                                                version => $plugin->getVersion() ||'',
                                                attr => _parse_attr @attr);
 
-                print "@{[dump($object)]}\n";
                 $self->register($object);
             }
         }

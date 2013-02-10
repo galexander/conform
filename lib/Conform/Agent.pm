@@ -83,12 +83,6 @@ has 'runtime' => (
 );
 
 
-has 'scheduler' => (
-    is => 'rw',
-    isa => 'Conform::Scheduler',
-    default => sub { Conform::Scheduler->new() },
-);
-
 =head2  site
 
 =cut
@@ -97,6 +91,12 @@ has 'site' => (
     is  => 'rw',
     isa => 'Conform::Site',
     required => 1,
+);
+
+has 'scheduler' => (
+    is => 'rw',
+    isa => 'Conform::Scheduler',
+    default => sub { Conform::Scheduler->new(executor => $_[0]) },
 );
 
 =head2  init
@@ -109,14 +109,27 @@ sub init {
     Trace;
     
     $self->runtime->boot;
-
     $self->compile;
 }
 
+sub iam {
+    return $_[0]->runtime->iam;
+}
+
+sub node {
+    return $_[0]->nodes->{$_[0]->iam};
+}
+
+sub find_node {
+    return $_[0]->nodes->{$_[1]};
+}
+
+sub nodes {
+    return $_[0]->site->nodes;
+}
+
 sub schedule {
-    my $self = shift;
-    my $name = shift;
-    my $action = shift;
+    my ($self, $name, $action) = @_;
 
     Trace "%s %s", $name, $action;
 
@@ -125,31 +138,135 @@ sub schedule {
     $self->scheduler->schedule($action);
 }
 
+sub merge_node_changes {
+    my $self = shift;
+    my ($new, $cur) = @_;
+
+    Trace;
+
+    my @actions = ();
+
+    my $cur_isa = $cur->{ISA} || {};
+    my $new_isa = $new->{ISA} || {};
+
+    sub _contains {
+        my ($haystack, $needle) = @_;
+        return grep /^$needle$/, @$haystack;
+    }
+
+    sub _subtract {
+        my ($a, $b) = @_;
+        if (ref $a eq 'HASH' && ref $b eq 'HASH') {
+            my @diff = ();
+            for (keys %$b) {
+                unless (exists $a->{$_}) {
+                    push @diff, $b->{$_};
+                }
+            }
+            return @diff;
+        }
+        if (ref $a eq 'ARRAY' && ref $b eq 'ARRAY') {
+            my @diff = ();
+            unless (scalar @$a == scalar @$b) {
+                for (my $i = scalar @$a; $i < scalar @$b; $i++) {
+                    push @diff, $b->[$i];
+                }
+            }
+            return @diff;
+        }
+    }
+
+    my @isa = ref $new_isa eq 'ARRAY'
+                ? @$new_isa
+                : [keys %$new_isa];
+
+    for my $isa (@isa) {
+        unless (_contains(
+                    (ref $cur_isa eq 'HASH'
+                        ? [keys %$cur_isa]
+                        : $cur_isa),
+                    $isa)) {
+
+            $self->extract_node_actions($isa);
+        }
+    }
+
+    for my $key (keys %$new) {
+        unless (exists $cur->{$key}) {
+            $self->identify_action($key, $key => $new->{$key});
+        } else {
+            for (_subtract $cur->{$key}, $new->{$key}) {
+                print "key=$key\n";
+                $self->identify_action($key, $key => $_);
+            }
+        }
+    }
+}
+
+sub execute {
+    my ($self, $action) = @_;
+
+    Trace;
+
+    no warnings 'once';
+    local $Storable::Deparse = 1;
+    my $copy = dclone $self->node;
+
+    $action->execute($self);
+
+    $self->merge_node_changes($self->node, $copy);
+
+}
+
 sub identify_action {
+    my $self = shift;
+    my $name = shift;
+    my $tag  = shift;
+    my $value = shift;
+    $log->debug("identifying task $tag");
+    my $provider = $self->runtime->find_provider(Action => $tag);
+    if ($provider) {
+        Debug "found provider %s for %s with %s tag = %s",
+               dump($provider),
+               $name,
+                dump($value),
+               $tag;
+
+        my @actions  = $provider->actions($self, $tag,  $value);
+
+        $self->schedule($tag, $_)
+            for @actions;
+
+        return wantarray 
+                   ? @actions
+                   :\@actions;
+    }
+}
+
+
+sub extract_actions {
     my $self = shift;
     my $name = shift;
     my $hash = shift;
 
-    $log->debug("identify_action for $name");
+    $log->debug("extract_actions for $name");
+    my @actions = ();
     for my $tag (grep !/ISA/, keys %$hash) {
-        my $value = $hash->{$tag};
-        $log->debug("identifying task $tag");
-
-        my $provider = $self->runtime->find_provider(Action => $tag);
-        if ($provider) {
-
-            Debug "found provider %s for %s with %s tag = %s",
-                   dump($provider),
-                   $name, dump($value),
-                   $tag;
-
-            my @action  = $provider->actions($self, $tag,  $value);
-
-            $self->schedule($tag, $_)
-                for @action;
-        
-        }
+        push @actions, $self->identify_action($name, $tag => $hash->{$tag});
     }
+    return wantarray 
+            ? @actions
+            :\@actions;
+}
+
+sub extract_node_actions {
+    my $self = shift;
+    my $node = shift;
+
+    Trace;
+
+    $self->site->walk
+            ($node, sub { $self->extract_actions (@_) });
 }
 
 sub compile {
@@ -157,11 +274,8 @@ sub compile {
     
     Trace;
 
-    my $site    = $self->site;
-    my $runtime = $self->runtime;
+    $self->extract_node_actions($self->iam);
 
-    $self->site->walk
-            ($self->runtime->iam, sub { $self->identify_action (@_) });
 }
 
 sub conform {

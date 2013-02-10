@@ -55,16 +55,17 @@ has 'args' => (
     required => 1,
 );
 
+has 'result' => (
+    'is' => 'rw',
+);
+
 sub execute {
     my $self = shift;
     my $provider = $self->impl;
-    if (ref $provider eq 'CODE') {
-          # $provider->($self, $self->id, $self->args);
-          $provider->($self, @_);
-    } else {
-        $provider->impl->($self->id, $self->args);
-    }
+    my @result = $provider->($self->args, $self, @_);
+    $self->result(\@result);
 }
+
 
 
 sub BUILD {

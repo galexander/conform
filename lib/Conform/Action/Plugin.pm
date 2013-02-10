@@ -5,33 +5,83 @@ extends 'Conform::Plugin';
 
 use Conform::Core qw();
 use Conform::Action;
+use Storable qw(dclone);
+use Conform::Debug qw(Trace Debug);
 
 sub import {
     my $package = shift;
     my $caller  = caller;
 
     no strict 'refs';
-    *{"${caller}\::Action"} = \&Action;
-    *{"${caller}\::i_isa"} = \&i_isa;
+    *{"${caller}\::Action"}         = \&Action;
+    *{"${caller}\::PushAction"}     = \&PushAction;
+    *{"${caller}\::MergeAction"}    = \&MergeAction;
+    *{"${caller}\::named_args"}     = \&named_args;;
+    *{"${caller}\::i_isa"}          = \&i_isa;
     *{"${caller}\::i_isa_fetchall"} = \&i_isa_fetchall;
     *{"${caller}\::i_isa_mergeall"} = \&i_isa_mergeall;
 
     __PACKAGE__->SUPER::import (package => $caller);
 }
 
-has 'id' => (is => 'rw', isa => 'Str');
-has 'name' => ( is => 'rw', isa => 'Str');
-has 'impl' => ( is => 'rw', isa => 'CodeRef' );
-has 'version' => ( is => 'rw', isa => 'Str');
+has 'id'        => ( is => 'rw', isa => 'Str' );
+has 'name'      => ( is => 'rw', isa => 'Str' );
+has 'configure' => ( is => 'rw', isa => 'CodeRef' );
+has 'impl'      => ( is => 'rw', isa => 'CodeRef' );
+has 'version'   => ( is => 'rw', isa => 'Str');
 
-my $agent;
-sub set_agent {
-    my $package = shift;
-    $agent = shift;
-}
-
+my $_agent;
+sub set_agent { $_agent = $_[1] }
+sub get_agent { $_agent }
 
 sub actions {
+    my ($self, $agent, $tag, $args) = @_;
+
+    Trace;
+
+    __PACKAGE__->set_agent ($agent)
+        unless __PACKAGE__->get_agent;
+
+    my $name = $self->name;
+
+    my $action_impl = sub {
+        return $self->impl->(@_);
+    };
+    
+    return () unless defined $args;
+
+    if (ref $args eq 'ARRAY') {
+        my @actions = ();
+        for my $value (@$args) {
+            push @actions,
+                 Conform::Action->new('args' => $value,
+                                      'name' => $name,
+                                      'provider' => $self,
+                                      'impl' => $action_impl);
+        }
+        return @actions;
+    }
+
+    if (ref $args eq 'HASH') {
+        my @actions = ();
+        for my $key (keys %$args) {
+            push @actions,
+                 Conform::Action->new('args' => [$key => $args->{$key}],
+                                      'name' => $name,
+                                      'provider' => $self,
+                                      'impl' => $action_impl);
+        }
+        return @actions;
+    }
+
+    return (Conform::Action->new('args' => $args,
+                                 'name' => $name,
+                                 'provider' => $self,
+                                 'impl' => $action_impl));
+
+}
+
+sub _actions {
     my $self        = shift;
     my $agent       = shift;
     my $tag         = shift;
@@ -43,35 +93,15 @@ sub actions {
 
     return () unless defined $value;
 
-    my $Impl = sub {
-        use Tie::Watch;
-        no strict 'vars';
-        #use vars qw/%m/;
-        #local *m = $agent->site->nodes;
-
-        my @changed = ();
-
-        use Data::Dumper;
-        my $_store = sub {
-            my $self = shift;
-            
-            print Dumper(\@_);
-            
-        };
-        
-        my $watch = Tie::Watch->new(-variable => $agent->site->nodes->{$agent->runtime->iam}, -debug => 1, -store => $_store);
-        my $result = $self->impl->(@_);
-    };
+    my $Impl = $self->impl;
 
     my $_scalar_action = sub {
         my $scalar = shift;
         return Conform::Action->new(
-                'id' => undef,
                 'args' => $scalar,
                 'name' => $name,
                 'provider' => $self,
                 'impl' => sub {
-                    # $Impl->($scalar,(shift @_), $agent)
                     $Impl->($scalar,(shift @_), $agent)
                 });
     };
@@ -167,6 +197,7 @@ sub actions {
 
 sub Action {
     my ($runtime, $site);
+    my $agent = __PACKAGE__->get_agent;
     if (blessed $_[0]
          and $_[0]->isa('Conform::Action')) {
             ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);
@@ -176,13 +207,56 @@ sub Action {
     }
 
     my $action  = shift;
-    print "Adding action $action\n";
-    push @{$site->nodes->{$runtime->iam}->{$action}}, @_;
+    Debug "Adding action $action\n";
+    my $action_val = $site->nodes->{$runtime->iam}{$action};
+    unless (defined $action_val) {
+        push @{$site->nodes->{$runtime->iam}{$action}}, @_;
+    } else {
+        push @{$site->nodes->{$runtime->iam}{$action}}, [@_];
+    }
+}
+
+sub named_args(\@$) {
+    my($params, $defaults) = @_;
+    return undef unless $params && @$params;
+    return $params->[0] if ref $params->[0] eq 'HASH' && @$params == 1;
+    my $return = {};
+  
+    if (@$params % 2 != 0 || $params->[0] !~ /^-/) {
+      # Positional parameters
+      my @order;
+      for (my $i = 0; $i < @$defaults; $i += 2) {
+        my($key, $value) = ($defaults->[$i], $defaults->[$i + 1]);
+        push @order, $key;
+      }
+      return $params unless @order;
+  
+      foreach (@order) {
+        last unless @$params;
+        $_ = "-$_" unless /^-/;
+        $return->{$_} = shift @$params;
+      }
+  
+      return $return;
+    }
+  
+    # Named parameters
+    for (my $i = 0; $i < @$defaults; $i += 2) {
+      my($key, $value) = ($defaults->[$i], $defaults->[$i + 1]);
+      $return->{$key} = $value if defined $value;
+    }
+  
+    for (my $i = 0; $i < @$params; $i += 2) {
+      my($key, $value) = ($params->[$i], $params->[$i + 1]);
+      $return->{$key} = $value;
+    }
+    return $return;
 }
 
 
 sub i_isa {
     my ($runtime, $site);
+    my $agent = __PACKAGE__->get_agent;
     if (blessed $_[0]
          and $_[0]->isa('Conform::Action')) {
             ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);
@@ -194,6 +268,7 @@ sub i_isa {
 
 sub i_isa_fetchall {
     my ($runtime, $site);
+    my $agent = __PACKAGE__->get_agent;
     if (blessed $_[0]
          and $_[0]->isa('Conform::Action')) {
             ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);
@@ -205,6 +280,7 @@ sub i_isa_fetchall {
 
 sub i_isa_mergeall {
     my ($runtime, $site);
+    my $agent = __PACKAGE__->get_agent;
     if (blessed $_[0]
          and $_[0]->isa('Conform::Action')) {
             ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);

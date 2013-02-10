@@ -8,6 +8,8 @@ use Conform::Action::Plugin;
 use Conform::Core::IO::File qw(file_install text_install);
 use Conform::Core::IO::Command qw(command);
 
+our $VERSION = $Conform::VERSION;
+
 sub File_install
     : Action
     : ID(src)
@@ -22,17 +24,19 @@ sub File_install
 
     file_install "$file", $args->{src}, $args->{cmd}, $args;
 
-    Action 'Dir_install' => { 'dir' => 'foo' };
+    Action 'File_install' => '/tmp/d' => { src => '/tmp/a' };
 
     print "Agent(Site) = ", dump($agent->site);
 }
 
 sub Text_install : Action {
     Debug "Text_install(%s)", dump(\@_);
-    my ($file, $args, $action, $agent, $runtime) = @_;
+    my ($args, $action, $agent, $runtime) = @_;
 
     my $text = $args->{text};
-    text_install $file, $text, $args->{cmd};
+    my $dest = $args->{file};
+
+    text_install $dest, $text, $args->{cmd};
 
 }
 
@@ -53,6 +57,8 @@ sub Command
     Trace "Command";
 
     command $cmd;
+
+    Action "Text_install" => { file => '/tmp/flubble', 'text' => "asdef" };
 }
 
 

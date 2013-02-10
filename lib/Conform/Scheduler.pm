@@ -29,6 +29,11 @@ use Conform::Queue;
 use Data::Dumper;
 use Conform::Debug qw(Debug Trace);
 
+has 'executor' => (
+    is => 'rw',
+    required => 1,
+);
+
 has 'pending'   => (
     is      => 'rw',
     isa     => 'Conform::Queue',
@@ -217,10 +222,10 @@ sub complete { Trace "complete(@{[Dumper($_[1])]})";
 }
 
 sub run { Trace "run()";
-    my $self = shift;
+    my $self     = shift;
     while ($self->has_work) {
-        my $action = $self->pending->dequeue();
-        $self->execute($action);
+        my $work = $self->pending->dequeue();
+        $self->execute($work);
     }
 }
 
@@ -237,8 +242,8 @@ Also executes actions 'waiting' for this action.
 =cut
 
 sub execute { Trace "execute(@{[ $_[1]->name ]})";
-    my $self   = shift;
-    my $action = shift;
+    my $self     = shift;
+    my $action   = shift;
     
     # Put action on runnable queue
     $self->runnable->enqueue($action);
@@ -269,7 +274,12 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
 
     # Execute the action (This can call 'schedule' as well)
     Trace "executing %s %s", $action->id, $action->name;
-    $action->execute();
+    my $executor = $self->executor;
+    if (ref $executor eq 'CODE') {
+        $executor->($action);
+    } else {
+        $executor->execute($action);
+    }
 
     $self->runnable->remove($action);
 
