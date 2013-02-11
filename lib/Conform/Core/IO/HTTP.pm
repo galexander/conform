@@ -9,7 +9,7 @@ Conform::Core::IO::HTTP - Conform common http io functions
 
 =head1 SYNOPSIS
 
-    use Conform::Core::IO::HTTP qw(:all :deprecated :conformhandlers);
+    use Conform::Core::IO::HTTP qw(:all);
 
     $content = slurp_http $uri, \%flags;
     @lines   = slurp_http $uri, \%flags;

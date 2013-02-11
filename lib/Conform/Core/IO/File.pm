@@ -1,6 +1,4 @@
-#!/bin/false
-
-=encoding utf8
+package Conform::Core::IO::File;
 
 =head1 NAME
 
@@ -48,17 +46,12 @@ Conform::Core::IO::File - Conform common io/file utility functions
 
     $tty  = this_tty;
 
-    # Warning and Die handlers are customized if
-    # :conformhandlers
-
 =head1 DESCRIPTION
 
 The Conform::Core::IO::File module contains a collection of useful file/dir/io
 functions for Conform
 
 =cut
-
-package Conform::Core::IO::File;
 
 use strict;
 use warnings;
@@ -1471,7 +1464,7 @@ C<$template> can be either one of the following:
 Flags that are prefixed with I<template_> will be passed as args to the the Text::Template constructor and stripped of the
 'template_' prefix. E.g.
 
-    I<template_source>, will be passed to OIE::Text::Template<gt>new as I<source>.
+    I<template_source>, will be passed to Text::Template<gt>new as I<source>.
 
 This gives more control over Text::Template.
 
@@ -1825,22 +1818,6 @@ sub symlink_check {
     }
 
     return 1;
-}
-
-=item B<ip2host>
-
-  $hostname = ip2host('192.0.2.100');
-
-Tries to find the hostname for an IP address (ie reverse look up)
-
-=cut
-
-sub ip2host {
-    my $ip = shift or return;
-    use Socket;
-    return $ip unless $ip =~ m/^\d+\.\d+\.\d+\.\d+$/;
-
-    return gethostbyaddr( inet_aton($ip), AF_INET ) || undef;
 }
 
 =item B<this_tty>
