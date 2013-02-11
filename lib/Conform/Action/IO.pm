@@ -318,6 +318,27 @@ sub Dir_check
     dir_check $dir, $cmd, $attr;
 }
 
+sub Symlink
+    : Action {
+    Debug "Symlink(%s)", dump($_[0]);
+    
+    my $args = shift;
+    
+    $args = named_args $args,
+                       [ "-target" => undef,
+                         "-link"   => undef,
+                         "-cmd"    => undef,
+                       ];
+
+    my ($target, $link, $cmd)
+        = @{$args}{qw(-target -link -cmd)};
+
+    defined $target && defined $link or croak
+"Usage: Symlink { -target => 'target',  -link => 'link', -cmd =>  'cmd', }";
+
+    symlink_check $target, $link, $cmd;
+}
+
 sub Command 
     : Action {
     Debug "Command(%s)", dump($_[0]);
