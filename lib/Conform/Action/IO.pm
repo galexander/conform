@@ -55,8 +55,7 @@ sub File_touch
 }
 
 sub File_install
-    : Action
-    : Desc('Install file to -dest from -src') {
+    : Action {
     Debug "File_install(%s)", dump($_[0]);
     my $args = shift;
 
@@ -77,8 +76,7 @@ sub File_install
 }
 
 sub Text_install 
-    : Action
-    : Desc("Install -text into -dest") {
+    : Action {
     Debug "Text_install(%s)", dump($_[0]);
 
     my $args = shift;
@@ -278,8 +276,7 @@ EOUSAGE
 
 
 sub Dir_install
-        : Action
-        : Desc("Install -dir from -src") {
+        : Action {
     Debug "Dir_install(%s)", dump($_[0]);
 
     my $args = shift;
@@ -291,18 +288,38 @@ sub Dir_install
                          "-attr" => { },
                        ];
 
-    my ($dir, $src, $cmd, $attr) = @{$args}{qw(-dir -src -cmd)};
+    my ($dir, $src, $cmd, $attr) = @{$args}{qw(-dir -src -cmd -attr)};
 
     unless ($dir && defined $src) {
         croak "usage: Dir_install { -dir => 'path', -src => 'path' }";
     }
 
     dir_install $dir, $src, $cmd, $attr;
+
+}
+
+sub Dir_check
+        : Action {
+    Debug "Dir_check(%s)", dump($_[0]);
+
+    my $args = shift;
+
+    $args = named_args $args,
+                       [ "-dir" => undef,
+                         "-cmd" => undef,
+                         "-attr" => { },
+                       ];
+
+    my ($dir, $cmd, $attr) = @{$args}{qw(-dir -cmd -attr)};
+
+    $dir or
+        croak "usage: Dir_check { -dir => 'path', -cmd => 'cmd', '-attr' => {} }";
+
+    dir_check $dir, $cmd, $attr;
 }
 
 sub Command 
-    : Action
-    : Desc("Run a command") {
+    : Action {
     Debug "Command(%s)", dump($_[0]);
     
     my $args = shift;
