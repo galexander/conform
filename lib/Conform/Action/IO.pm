@@ -37,7 +37,7 @@ sub File_attr
 
     my $updated = set_attr $file, $attr;
 
-    if ($updated && !check_queue_cmd ($cmd)) {
+    if ($updated && check_queue_cmd ($cmd)) {
         command $cmd;
     }
 
