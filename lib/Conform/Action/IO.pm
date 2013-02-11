@@ -10,6 +10,16 @@ use Carp qw(croak);
 
 our $VERSION = $Conform::VERSION;
 
+sub check_queue_cmd {
+    my $cmd = shift;
+    my $attr = shift;
+    if (defined $cmd and $cmd =~ /^Q:(.*)/) {
+        Action 'Queue_command' => { '-cmd' => $1, -attr => $attr };
+        return undef;
+    }
+    return $cmd;
+}
+
 sub File_attr
     : Action {
     Debug "File_attr(%s)", dump($_[0]);
@@ -27,7 +37,7 @@ sub File_attr
 
     my $updated = set_attr $file, $attr;
 
-    if ($updated && $cmd) {
+    if ($updated && !check_queue_cmd ($cmd)) {
         command $cmd;
     }
 
@@ -50,7 +60,7 @@ sub File_touch
     $file or croak
 "Usage: File_touch { -file => 'file', -cmd => 'cmd', -attr => { } }";
 
-    file_touch $file, $cmd, $attr;
+    file_touch $file, check_queue_cmd($cmd), $attr;
 
 }
 
@@ -72,7 +82,7 @@ sub File_install
         croak "usage: File_install { -dest => 'path', -src => 'path' }";
     }
 
-    file_install $dest, $src, $cmd, $attr;
+    file_install $dest, $src, check_queue_cmd($cmd), $attr;
 }
 
 sub Text_install 
@@ -94,7 +104,7 @@ sub Text_install
         croak "usage: Text_install { -text => 'text', -src => 'path' }";
     }
 
-    text_install $dest, $text, $cmd, $attr;
+    text_install $dest, $text, check_queue_cmd($cmd), $attr;
 
 }
 
@@ -127,7 +137,7 @@ Usage: File_append {
 }
 EOUSAGE
 
-    file_append $file, $line, $regex, $cmd, $create, $attr;
+    file_append $file, $line, $regex, check_queue_cmd($cmd), $create, $attr;
 }
 
 
@@ -156,7 +166,7 @@ Usage: File_modify {
 }
 EOUSAGE
 
-    file_modify $file, $cmd, $expr, $attr;
+    file_modify $file, check_queue_cmd($cmd), $expr, $attr;
 }
 
 sub File_unlink
@@ -171,7 +181,7 @@ sub File_unlink
     $file or croak
 "Usage: File_unlink { -file => 'file', -cmd => 'cmd' }";
 
-    file_unlink $file, $cmd;
+    file_unlink $file, check_queue_cmd($cmd);
 }
 
 sub File_comment
@@ -192,7 +202,7 @@ sub File_comment
 
     $comment ||= "#";
 
-    file_comment_spec $file, $comment, $cmd, $regex;
+    file_comment_spec $file, $comment, check_queue_cmd($cmd), $regex;
 }
 
 sub File_uncomment
@@ -242,7 +252,7 @@ Usage: Template_text_install {
        }
 EOUSAGE
 
-    template_text_install $file, $template, $data, $cmd, $attr;
+    template_text_install $file, $template, $data, check_queue_cmd($cmd), $attr;
 }
 
 sub Template_file_install
@@ -271,7 +281,7 @@ Usage: Template_file_install {
        }
 EOUSAGE
 
-    template_file_install $file, $template, $data, $cmd, $attr;
+    template_file_install $file, $template, $data, check_queue_cmd($cmd), $attr;
 }
 
 
@@ -294,7 +304,7 @@ sub Dir_install
         croak "usage: Dir_install { -dir => 'path', -src => 'path' }";
     }
 
-    dir_install $dir, $src, $cmd, $attr;
+    dir_install $dir, $src, check_queue_cmd($cmd), $attr;
 
 }
 
@@ -315,7 +325,7 @@ sub Dir_check
     $dir or
         croak "usage: Dir_check { -dir => 'path', -cmd => 'cmd', '-attr' => {} }";
 
-    dir_check $dir, $cmd, $attr;
+    dir_check $dir, check_queue_cmd($cmd), $attr;
 }
 
 sub Symlink
@@ -336,7 +346,7 @@ sub Symlink
     defined $target && defined $link or croak
 "Usage: Symlink { -target => 'target',  -link => 'link', -cmd =>  'cmd', }";
 
-    symlink_check $target, $link, $cmd;
+    symlink_check $target, $link, check_queue_cmd($cmd);
 }
 
 sub Command 
@@ -355,7 +365,37 @@ sub Command
 
     $cmd or croak "usage: Command 'command'";
 
-    command $cmd, $attr || {};
+    if (check_queue_cmd($cmd, $attr)) {
+        command $cmd, $attr || {};
+    }
+}
+
+{
+    my %run = ();
+
+    sub QueueCommand
+        : Action {
+        Debug "Queue_command(%s)", dump($_[0]);
+
+        my $args = shift;
+    
+        $args = named_args $args,
+                            [ '-cmd'  => undef,
+                              '-attr' => undef,
+                            ];
+          
+        my ($cmd, $attr) = @{$args}{qw(-cmd -attr)}; 
+
+        $cmd or croak "usage: Queue_command 'cmd'";
+
+        if($run{$cmd}++) {
+            Debug "command $cmd already run";
+            return 1;
+        }
+
+        command $cmd, $attr;
+    }
+    
 }
 
 
