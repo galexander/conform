@@ -71,6 +71,7 @@ our @EXPORT_OK = (qw(slurp_file
                      text_install
                      set_attr
                      get_attr
+                     file_touch
                      file_append
                      file_modify
                      file_unlink
@@ -101,6 +102,7 @@ use Conform::Core::IO::File (qw(safe_write
                                 set_attr
                                 get_attr
                                 file_append
+                                file_touch
                                 file_modify
                                 file_unlink
                                 file_comment
@@ -175,16 +177,18 @@ sub file_install {
     my $filename = shift;
     my $source   = shift;
     return $source =~ m{^https?://}
-                ? return Conform::Core::IO::File::file_install($filename, $source, @_)
-                : return Conform::Core::IO::HTTP::http_install($filename, $source, @_);
+                ? return Conform::Core::IO::HTTP::http_install($filename, $source, @_)
+                : return Conform::Core::IO::File::file_install($filename, $source, @_);
 }
 
-=item B<file_append>, B<file_modify>, B<file_comment> B<file_comment_spec>
+=item B<file_touch>, B<file_append>, B<file_modify>, B<file_comment> B<file_comment_spec>
       B<file_uncomment> B<file_uncomment_spec>
 
     $updated = file_append $filename, $line, $regex, $cmd, $create;
 
 See
+L<Conform::Core::IO::File::file_touch>,
+L<Conform::Core::IO::File::file_modify>,
 L<Conform::Core::IO::File::file_append>, 
 L<Conform::Core::IO::File::file_modify>,
 L<Conform::Core::IO::File::file_comment>,

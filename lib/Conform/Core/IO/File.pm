@@ -23,6 +23,7 @@ Conform::Core::IO::File - Conform common io/file utility functions
     $updated  = text_install $filename, $text,   $cmd, \%flags;
     $updated  = file_install $filename, $source, $cmd, \%flags, @expr;
 
+    $updated  = file_touch  $filename, $cmd, \%flags;
     $updated  = file_append $filename, $line, $regex, $cmd, $create;
     $updated  = file_modify $filename, $cmd, @expr;
     $unlinked = file_unlink $filename, $cmd;
@@ -98,7 +99,7 @@ $VERSION     = $Conform::VERSION;
           safe_write safe_write_file
           set_attr get_attr
           text_install file_install
-          file_audit file_append file_modify file_unlink
+          file_audit file_touch file_append file_modify file_unlink
           file_comment_spec file_comment file_uncomment_spec file_uncomment
           template_install template_file_install template_text_install
           dir_check dir_install
@@ -1148,6 +1149,39 @@ sub dir_list {
         return;
       }, $flags;
 }
+
+
+#TODO - Documentation
+sub file_touch {
+    my ( $filename, $cmd, $flags ) = @_;
+    $flags ||= {};
+
+    defined $filename and ref $flags eq 'HASH'
+      or croak
+      'Usage: Conform::Core::IO::File::file_touch($filename, $cmd, \%flags)';
+
+    $flags->{srcfn} ||= 'text';
+
+    # create containing directory if it doesn't exist
+    ( my $path = $filename ) =~ s{/[^/]+$}{};
+    my $changed = dir_check $path if $path;
+
+    unless (-f $filename) {
+        safe_write_file $filename, '',
+            { note => "touch creating file '$filename'" };
+
+        $changed++;
+    }
+
+    $changed += set_attr $filename, $flags;
+    if ( $changed and defined $cmd ) {
+        command $cmd,
+          { note => "Running '$cmd' to finish touch of $filename" };
+    }
+
+    return $changed
+}
+
 
 =item B<file_append>
 
