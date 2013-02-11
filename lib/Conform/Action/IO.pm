@@ -218,6 +218,64 @@ sub File_uncomment
     file_uncomment_spec $file, $comment, $cmd, $regex;
 }
 
+sub Template_text_install
+    : Action {
+    Debug "Template_text_install(%s)", dump($_[0]);
+    
+    my $args = shift;
+
+    $args = named_args $args, [ "-file" => undef,
+                                "-template" => undef,
+                                "-data" => {},
+                                "-cmd"  => undef,
+                                "-attr" => {}
+                              ];
+
+    my ($file, $template, $data, $cmd, $attr) =
+            @{$args}{qw(-file -template -data -cmd -attr)};
+
+    $file && defined $template or croak <<EOUSAGE;
+Usage: Template_text_install {
+            '-file'     => 'file',
+            '-template' => 'template',
+            '-data'     => {},
+            '-cmd'      => 'cmd',
+            '-attr'     => {}
+       }
+EOUSAGE
+
+    template_text_install $file, $template, $data, $cmd, $attr;
+}
+
+sub Template_file_install
+    : Action {
+    Debug "Template_file_install(%s)", dump($_[0]);
+    
+    my $args = shift;
+
+    $args = named_args $args, [ "-file" => undef,
+                                "-template" => undef,
+                                "-data" => {},
+                                "-cmd"  => undef,
+                                "-attr" => {}
+                              ];
+
+    my ($file, $template, $data, $cmd, $attr) =
+            @{$args}{qw(-file -template -data -cmd -attr)};
+
+    $file && $template or croak <<EOUSAGE;
+Usage: Template_file_install {
+            '-file'     => 'file',
+            '-template' => 'template',
+            '-data'     => {},
+            '-cmd'      => 'cmd',
+            '-attr'     => {}
+       }
+EOUSAGE
+
+    template_file_install $file, $template, $data, $cmd, $attr;
+}
+
 
 sub Dir_install
         : Action
