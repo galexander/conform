@@ -373,7 +373,7 @@ sub Command
 {
     my %run = ();
 
-    sub QueueCommand
+    sub Queue_command
         : Action {
         Debug "Queue_command(%s)", dump($_[0]);
 
@@ -392,8 +392,8 @@ sub Command
             Debug "command $cmd already run";
             return 1;
         }
-
-        command $cmd, $attr;
+        
+        command $cmd, $attr || {};
     }
     
 }
