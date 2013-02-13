@@ -110,7 +110,9 @@ has 'result' => (
 =cut
 
 has 'impl' => (
-    is => 'rw',
+    is  => 'rw',
+    isa => 'CodeRef',
+    required => 1,
 );
 
 =item B<execute>
