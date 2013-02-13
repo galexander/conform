@@ -12,17 +12,23 @@ Conform::Action
 
 use Conform::Action;
 
+=head1 ABSTRACT
+
+Conform::Action - descrete unit of work to be run
+by a conform agent.
+
 =head1  DESCRIPTION
 
 =cut
 
-=head1   METHODS
+=head1  METHODS
 
-=head2   name
+=over
 
-=cut
+=item B<id>
 
-=head2   desc
+    $id = $action->id;
+    $action->id($id);
 
 =cut
 
@@ -30,15 +36,35 @@ has 'id' => (
     is => 'rw',
 );
 
+=item B<name>
+
+    $name = $action->name;
+    $action->name($name);
+
+=cut
+
 has 'name' => (
     is => 'rw',
     isa => 'Str',
 );
 
+=item B<complete>
+
+    $complete = $action->complete;
+
+=cut
+    
 has 'complete' => (
     is => 'rw',
     isa => 'Bool',
 );
+
+=item B<dependencies>
+
+    $dependencies = $action->dependencies;
+    $action->dependencies(\@dependencies);
+
+=cut
 
 has 'dependencies' => (
     is => 'rw',
@@ -46,32 +72,68 @@ has 'dependencies' => (
     default => sub { [] },
 );
 
+=item B<provider>
+
+    $provider = $action->provider;
+
+=cut
+
 has 'provider' => (
     is => 'rw',
 );
+
+=item B<args>
+
+    $args = $action->args;
+
+=cut
 
 has 'args' => (
     is => 'rw',
     required => 1,
 );
 
+=item B<result>
+    
+    $result = $action->result;
+
+=cut
+
 has 'result' => (
     'is' => 'rw',
 );
 
+=item B<impl>
+    
+    $action->impl->();
+
+=cut
+
+has 'impl' => (
+    is => 'rw',
+);
+
+=item B<execute>
+
+    $action->execute();
+
+=cut
+
 sub execute {
     my $self = shift;
-    my $provider = $self->impl;
-    my @result = $provider->($self->args, $self, @_);
+    my $function = $self->impl;
+    my @result   = $function->($self->args,
+                               $self,
+                               @_);
     $self->result(\@result);
+    $self->complete(1);
 }
 
+=item B<satisfies>
 
+    $action->satisfies($dependency);
 
-sub BUILD {
-    my $self = shift;
-    $self;
-}
+=cut
 
 sub satisfies {
     my $self = shift;
@@ -95,12 +157,12 @@ sub satisfies {
     return $checked;
 }
 
-has 'impl' => (
-    is => 'rw',
-);
+=back
 
 
 =head1  SEE ALSO
+
+L<conform> L<Conform::Action::Plugin>
 
 =head1  AUTHOR
 
