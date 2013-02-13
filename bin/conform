@@ -17,9 +17,12 @@ use Conform::SiteLoader;
 
 my @debug;
 my @trace;
+
+my $iam;
 my $uri;
 my $conf_file;
 my $runtime;
+my @list;
 
 
 sub usage {
@@ -28,16 +31,44 @@ sub usage {
 }
 
 GetOptions(
+    'iam=s'         => \$iam,
 	'uri=s'         => \$uri,
 	'runtime'       => \$runtime,
     'conf-file=s'   => \$conf_file,
     'trace'         => \$Conform::Debug::TRACE,
     'debug'         => \$Conform::Debug::DEBUG,
+    'list=s'        => \@list,
 	'h|?'           => \&usage
 ) or usage(msg => 'Invalid parametes');
 
 
 my $runtime = Conform::Runtime::Server::Posix->new(iam => 'test');
+if (@list) {
+
+    $runtime->boot;
+
+    for (@list) {
+        /^plugins$/ and do {
+            printf "%s Action Providers VERSION = %s, ID = %s\n",
+                   $runtime->getName(),
+                   $runtime->getVersion() || 0,
+                   $runtime->getId();
+
+            for my $provider (@{$runtime->action_providers}) {
+                printf "%s %s %s %s %s\n",
+                        $provider->getId(),
+                        $provider->id(),
+                        $provider->name(),
+                        $provider->getVersion(),
+                        $provider->get_attr('Desc');
+
+            }
+        };
+    }
+    exit 0;
+}
+
+
 my $site    = Conform::SiteLoader->load($uri);
 my $agent   = Conform::Agent->new(site => $site, runtime => $runtime);
 
