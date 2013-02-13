@@ -3,6 +3,10 @@
  - Filter plugins by runtime
  - ActionProvider to spit out actions (instead of being built by the agent)
  - Dependency/Require checks w/actions
+ - Requirements
+ - Priority queue for actions
+ - 3rd party plugins
+ - Task Provider?
 
 
 
