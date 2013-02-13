@@ -9,6 +9,7 @@ use_ok 'Conform::Action';
 my @methods = qw(new
                  id
                  name
+                 prio
                  args
                  impl
                  execute
@@ -28,6 +29,7 @@ isa_ok $action, 'Conform::Action';
 ok (!defined($action->id),   'id is not defined');
 ok (!defined($action->name), 'name is not defined');
 ok (defined ($action->args), 'args is defined');
+is ($action->prio, 50,       'prio set correctly');
 is_deeply ($action->dependencies,
            [],               'action dependencies not set');
 

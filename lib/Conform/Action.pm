@@ -48,6 +48,18 @@ has 'name' => (
     isa => 'Str',
 );
 
+=item B<prio>
+
+    $action->prio;
+
+=cut
+
+has 'prio' => (
+    is => 'rw',
+    isa => 'Int',
+    default => '50',
+);
+
 =item B<complete>
 
     $complete = $action->complete;
