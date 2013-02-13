@@ -13,11 +13,14 @@ has iam => (
     required => 1,
 );
 
-has action_providers => (
-    is => 'rw',
-    isa => 'ArrayRef',
-);
+sub action_providers {
+    my $self = shift;
+    my $providers = $self->providers;
+    return wantarray
+            ? @{$providers->{Action} ||=[]}
+            : ($providers->{Action}  ||=[]);
 
+}
 has data_providers => (
     is => 'rw',
     isa => 'ArrayRef',

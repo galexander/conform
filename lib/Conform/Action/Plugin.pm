@@ -7,6 +7,8 @@ use Conform::Core qw();
 use Conform::Action;
 use Storable qw(dclone);
 use Conform::Debug qw(Trace Debug);
+use Data::Dump qw(dump);
+use Conform::Plugin;
 
 sub import {
     my $package = shift;
@@ -66,7 +68,7 @@ sub actions {
         my @actions = ();
         for my $key (keys %$args) {
             push @actions,
-                 Conform::Action->new('args' => [$key => $args->{$key}],
+                 Conform::Action->new('args' => {$key => $args->{$key}},
                                       'name' => $name,
                                       'provider' => $self,
                                       'impl' => $action_impl);

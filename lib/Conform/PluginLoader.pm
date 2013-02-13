@@ -131,8 +131,10 @@ EOPLUGIN
         sub _parse_attr {
             my @attr;
             for (@_) {
-                /^(\S+?)(?:\((\S+)\))?$/ and
+                /^(\S+?)(?:\(([^)]+)\))?$/ and
                     push @attr, [ $1, $2 ];
+                #/^(\S+?)(?:\((\S+)\))?$/ and
+                #    push @attr, [ $1, $2 ];
             }
             return \@attr;
         }
