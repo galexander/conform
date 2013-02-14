@@ -22,7 +22,7 @@ sub check_queue_cmd {
 
 sub File_attr
     : Action
-    : Desc("Modify file attributes") {
+    : Desc(Modify file attributes) {
     Debug "File_attr(%s)", dump($_[0]);
     
     my $args = shift;

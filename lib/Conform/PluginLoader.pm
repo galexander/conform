@@ -132,9 +132,8 @@ EOPLUGIN
             my @attr;
             for (@_) {
                 /^(\S+?)(?:\(([^)]+)\))?$/ and
-                    push @attr, [ $1, $2 ];
-                #/^(\S+?)(?:\((\S+)\))?$/ and
-                #    push @attr, [ $1, $2 ];
+                    my ($name, $value) = ($1, $2);
+                    push @attr, [ $name, $value ];
             }
             return \@attr;
         }
