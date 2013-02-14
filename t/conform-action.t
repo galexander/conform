@@ -1,4 +1,4 @@
-package Conform::Action;
+#!perl
 use Test::More qw(no_plan);
 use strict;
 use FindBin;
@@ -13,6 +13,7 @@ my @methods = qw(new
                  args
                  impl
                  execute
+                 run
                  complete
                  result
                  dependencies

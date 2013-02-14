@@ -4,6 +4,8 @@ use Data::Dump qw(dump);
 use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
 
+with 'Conform::Work';
+
 =head1  NAME
 
 Conform::Action
@@ -25,52 +27,6 @@ by a conform agent.
 
 =over
 
-=item B<id>
-
-    $id = $action->id;
-    $action->id($id);
-
-=cut
-
-has 'id' => (
-    is => 'rw',
-);
-
-=item B<name>
-
-    $name = $action->name;
-    $action->name($name);
-
-=cut
-
-has 'name' => (
-    is => 'rw',
-    isa => 'Str',
-);
-
-=item B<prio>
-
-    $action->prio;
-
-=cut
-
-has 'prio' => (
-    is => 'rw',
-    isa => 'Int',
-    default => '50',
-);
-
-=item B<complete>
-
-    $complete = $action->complete;
-
-=cut
-    
-has 'complete' => (
-    is => 'rw',
-    isa => 'Bool',
-);
-
 =item B<dependencies>
 
     $dependencies = $action->dependencies;
@@ -78,62 +34,13 @@ has 'complete' => (
 
 =cut
 
-has 'dependencies' => (
-    is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [] },
-);
+=item B<run>
 
-=item B<provider>
-
-    $provider = $action->provider;
+    $action->run();
 
 =cut
 
-has 'provider' => (
-    is => 'rw',
-);
-
-=item B<args>
-
-    $args = $action->args;
-
-=cut
-
-has 'args' => (
-    is => 'rw',
-    required => 1,
-);
-
-=item B<result>
-    
-    $result = $action->result;
-
-=cut
-
-has 'result' => (
-    'is' => 'rw',
-);
-
-=item B<impl>
-    
-    $action->impl->();
-
-=cut
-
-has 'impl' => (
-    is  => 'rw',
-    isa => 'CodeRef',
-    required => 1,
-);
-
-=item B<execute>
-
-    $action->execute();
-
-=cut
-
-sub execute { Trace;
+sub run { Trace;
     my $self     = shift;
 
     Debug "Executing Action (id=%s,name=%s,args=%s)",
@@ -153,14 +60,34 @@ sub execute { Trace;
           dump($self->args),
           dump(\@result);
 
-    $self->result(\@result);
-
-    $self->complete(1);
-
     return wantarray
             ? @result
             :\@result;
 }
+
+
+
+sub exec {
+
+}
+
+has 'dependencies' => (
+    is => 'rw',
+    isa => 'ArrayRef',
+    default => sub { [] },
+);
+
+=item B<args>
+
+    $args = $action->args;
+
+=cut
+
+has 'args' => (
+    is => 'rw',
+    required => 1,
+);
+
 
 =item B<satisfies>
 
