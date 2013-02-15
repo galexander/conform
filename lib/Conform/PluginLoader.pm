@@ -44,17 +44,8 @@ sub get_plugin_type {
     return $self->plugin_type($type);
 }
 
-sub register {
-    my $self   = shift;
-    my $plugin = shift;
+requires qw(register);
 
-    Trace;
-
-    my $plugins = $self->plugins;
-    $plugins ||= [];
-    push @$plugins, $plugin;
-    $self->plugins($plugins);
-}
 
 sub plugin_finder {
     my $self = shift;
@@ -62,10 +53,44 @@ sub plugin_finder {
 
     Trace;
 
+    my %args = @_;
+    my @search_path = ( "Conform::${type}" );
+    my @except      = '^Conform::\S+::Plugin';
+    my @search_dir  = ();
+
+    if (my $search_path = $args{search_path}) {
+        push @search_path,
+            ref $search_path eq 'ARRAY'
+                ? @$search_path
+                : $search_path;
+    }
+
+    if (my $except = $args{except}) {
+        push @except,
+            ref $except eq 'ARRAY'
+                ? @$except
+                : $except;
+    }
+
+    my $except = sprintf "(%s)",
+                         join "|", @except;
+
+    $except = qr/$except/;
+
+    if (my $search_dir = $args{search_dir}) {
+        push @search_dir,
+            ref $search_dir eq 'ARRAY'
+                ? @$search_dir
+                : $search_dir;
+    }
+
     return new Module::Pluggable::Object
-                    search_path => [ "Conform::${type}" ],
-                    except => qr/^Conform::\S+::Plugin/,
-                    require => 0;
+                    search_path => \@search_path,
+                    except => $except,
+                    require => 0,
+                    (scalar @search_dir
+                        ? (search_dir => \@search_dir)
+                        : ());
 }
 
 sub plugin {
@@ -140,23 +165,25 @@ EOPLUGIN
 
         no strict 'refs';
         for my $field (keys %{"${plugin}\::"}) {
-            next unless defined \&{"${plugin}\::${field}"};
+            next unless defined &{"${plugin}\::${field}"};
             my @attr = attributes::get(\&{"${plugin}\::${field}"});
 
             for my $name (_get_type_names $type, $field, @attr) {
                 $log->debugf("%s::%s is a '%s'", $plugin, $name, $type);
 
-                my $object = $plugin_type->new(name => $name,
-                                               impl => \&{"${plugin}\::${field}"},
-                                               id   => $plugin->getId(),
-                                               version => $plugin->getVersion() ||'',
-                                               attr => _parse_attr @attr);
+                $self->register(
+                        plugin  => $plugin_type,
+                        name    => $name,
+                        id      => $plugin->getId(),
+                        version => $plugin->getVersion() || "0.0",
+                        impl    => \&{"${plugin}\::${field}"},
+                        attr    => _parse_attr @attr);
 
-                $self->register($object);
             }
         }
     };
     if (my $err = $@) {
+        Debug "error $err\n";
         $log->error("Error loading plugin $plugin: $@");
     }
 }

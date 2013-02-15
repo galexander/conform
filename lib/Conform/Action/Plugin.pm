@@ -31,10 +31,60 @@ has 'name'      => ( is => 'rw', isa => 'Str' );
 has 'configure' => ( is => 'rw', isa => 'CodeRef' );
 has 'impl'      => ( is => 'rw', isa => 'CodeRef' );
 has 'version'   => ( is => 'rw', isa => 'Str');
+has 'arg_spec'  => ( is => 'rw');
 
 my $_agent;
 sub set_agent { $_agent = $_[1] }
 sub get_agent { $_agent }
+
+sub _get_positional_args {
+    my ($args, $spec) = @_;
+    my %formatted = ();
+    for my $check (@$spec) {
+        my $arg = shift @$args;
+        if ($check->{required}) {
+            die "$check->{arg} required"
+                unless defined $arg;
+        }
+        if ($check->{type}) {
+            die "$check->{arg} invalid type @{[ ref $arg ]}"
+                if defined $arg and ref $arg ne $check->{type};
+
+            $arg = $check->{type} eq 'HASH'
+                        ? {}
+                        : [];
+        }
+        $formatted{_id} = $arg
+            unless exists $formatted{_id};
+        $formatted{$check->{arg}} = $arg;
+    }
+    return \%formatted;
+}
+
+sub _get_named_args {
+    my ($args, $spec) = @_;
+    my %formatted = ();
+    for my $check (@$spec) {
+        my $arg = $args->{$check->{arg}};
+        if ($check->{required}) {
+            die "$check->{arg} required"
+                unless defined $arg;
+        }
+        if ($check->{type}) {
+            die "$check->{arg} invalid type @{[ ref $arg ]}"
+                if defined $arg && ref $arg ne $check->{type};
+
+            $arg = $check->{type} eq 'HASH'
+                        ? {}
+                        : [];
+        }
+        $formatted{_id} = $arg
+            unless exists $formatted{_id};
+        $formatted{$check->{arg}} = $arg;
+    }
+    return \%formatted;
+
+}
 
 sub actions {
     my ($self, $agent, $tag, $args) = @_;
@@ -49,6 +99,70 @@ sub actions {
     my $action_impl = sub {
         return $self->impl->(@_);
     };
+
+    my $arg_spec = $self->arg_spec;
+
+    if (defined $arg_spec) {
+        my $spec = dclone $arg_spec;
+        my $id   = $spec->[0]->{arg};
+        my @actions;
+        if (ref $args eq 'ARRAY') {
+            for my $_args (@$args) {
+                my $formatted;
+                if (ref $_args eq 'ARRAY') {
+                    $formatted = _get_positional_args $_args, $spec;
+                }
+                elsif (ref $_args eq 'HASH') {
+                    $formatted = _get_named_args $_args, $spec;
+                }
+                elsif(!ref $_args) {
+                    $formatted = _get_positional_args [$_args], $spec;
+                }
+                if ($formatted) {
+                    push @actions,
+                        Conform::Action->new('args' => $formatted,
+                                             'name' => $name,
+                                             'provider' => $self,
+                                             'impl' => $action_impl);
+                }
+            }
+        }
+        elsif (ref $args eq 'HASH') {
+            for my $_arg (keys %$args) {
+                my $_args = $args->{$_arg};
+                my $formatted;
+                if (ref $_args eq 'ARRAY') {
+                    $formatted = _get_positional_args [$_arg, @$_args], $spec;
+                }
+                elsif (ref $_args eq 'HASH') {
+                    $formatted = _get_named_args { $id => $_arg, %$_args }, $spec;
+                }
+                elsif(!ref $_args) {
+                    $formatted = _get_positional_args [$_arg, $_args], $spec;
+                }
+                if ($formatted) {
+                    push @actions,
+                        Conform::Action->new('args' => $formatted,
+                                             'name' => $name,
+                                             'provider' => $self,
+                                             'impl' => $action_impl);
+                }
+
+            }
+        }
+        elsif (!ref $args) {
+            push @actions,
+                    Conform::Action->new('args' => (_get_positional_args [$args], $spec),
+                                         'name' => $name,
+                                         'provider' => $self,
+                                         'impl' => $action_impl);
+
+        }
+        return @actions;
+    }
+
+
+    
     
     return () unless defined $args;
 

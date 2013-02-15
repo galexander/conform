@@ -3,6 +3,10 @@ use Mouse;
 
 with 'Conform::PluginLoader';
 
+sub register {
+
+}
+
 sub get_plugins {
     my $self = shift;
     my $finder = $self->plugin_finder;

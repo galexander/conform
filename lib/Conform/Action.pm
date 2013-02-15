@@ -81,6 +81,9 @@ has 'dependencies' => (
 
     $args = $action->args;
 
+Action args can be named or positional.
+Examples:
+
 =cut
 
 has 'args' => (

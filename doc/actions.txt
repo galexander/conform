@@ -1,0 +1,97 @@
+Action 'args' format
+    Named, or positional
+
+    conform :directives
+
+Examples:
+
+Command => 'foo';
+Command => [ 'foo' ],
+Command => {  };
+Symlink => {
+    'foo' => 'bar',
+};
+File_install => [
+    { }
+];
+
+File_install => [
+    [ ],
+];
+
+File_install => [
+    'file' => {
+};
+
+Action => {
+    'id' => { }
+};
+
+Action => [
+    [ 'id' => var1, var2 ]
+]
+
+Action => 'id';
+
+Action => {
+    'id' => 'var'
+}
+
+Inittab_include => [
+    [ ]
+];
+
+User => {
+
+};
+
+
+Requirements:
+    Need multiple per machines entry.
+
+
+For scalar:
+
+Command => 'foo';
+    args => 'foo';
+
+For Array:
+    Must contain either
+    : scalar
+    : hash
+    : array
+
+
+For Hash:
+    Must contain 
+    scalar => 'scalar';
+    scalar => 'HASH'
+
+sub Command
+    : Action 
+    : Args(+cmd, [%attr]) {
+
+}
+
+sub File_install
+    : Action
+    : Args(+file, +src, cmd, +%flags) {
+
+}
+
+sub Symlink 
+    : Action
+    : Param(+link +target cmd) {
+}
+
+Symlink => {
+    'link' => { target => 'foo', :depend => {} }
+}
+
+Symlink => [
+    [ link', 'target', { } ]
+];
+
+Symlink => [
+    'link' => 'target'
+];

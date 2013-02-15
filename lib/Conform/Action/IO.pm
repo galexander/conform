@@ -22,6 +22,7 @@ sub check_queue_cmd {
 
 sub File_attr
     : Action
+    : Args(+file, +%attr)
     : Desc(Modify file attributes) {
     Debug "File_attr(%s)", dump($_[0]);
     
@@ -87,22 +88,23 @@ sub File_install
 }
 
 sub Text_install 
-    : Action {
+    : Action
+    : Args(+file, +text, cmd, %attr) {
     Debug "Text_install(%s)", dump($_[0]);
 
     my $args = shift;
 
-    $args = named_args $args,
-                       [ "-dest" => undef,
-                         "-text" => undef,
-                         "-cmd" => undef,
-                         "-attr" => { },
-                       ];
-
-    my ($dest, $text, $cmd, $attr) = @{$args}{qw(-dest -text -cmd)};
+    my ($dest, $text, $cmd, $attr) = @{$args}{qw(file text cmd, attr)};
 
     unless ($dest && defined $text) {
-        croak "usage: Text_install { -text => 'text', -src => 'path' }";
+        croak <<EOUSAGE;
+usage: Text_install { 
+            file => 'file',
+            text => 'text',
+            cmd  => 'cmd',
+            attr => \%attr
+EOUSAGE
+           
     }
 
     text_install $dest, $text, check_queue_cmd($cmd), $attr;
