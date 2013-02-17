@@ -28,27 +28,30 @@ sub import {
 
 has 'id'        => ( is => 'rw', isa => 'Str' );
 has 'name'      => ( is => 'rw', isa => 'Str' );
-has 'configure' => ( is => 'rw', isa => 'CodeRef' );
 has 'impl'      => ( is => 'rw', isa => 'CodeRef' );
 has 'version'   => ( is => 'rw', isa => 'Str');
 has 'arg_spec'  => ( is => 'rw');
-
-my $_agent;
-sub set_agent { $_agent = $_[1] }
-sub get_agent { $_agent }
+has 'agent'     => ( is => 'rw');
 
 sub _get_positional_args {
-    my ($args, $spec) = @_;
+    my ($name, $args, $spec) = @_;
+    Debug "_get_positional_args %s %s",
+          dump($args),
+          dump($spec);
+
+    $args = dclone $args;
+
     my %formatted = ();
     for my $check (@$spec) {
         my $arg = shift @$args;
         if ($check->{required}) {
-            die "$check->{arg} required"
+            die "$name:missing required $check->{arg}"
                 unless defined $arg;
         }
         if ($check->{type}) {
-            die "$check->{arg} invalid type @{[ ref $arg ]}"
-                if defined $arg and ref $arg ne $check->{type};
+            die "$name:$check->{arg} invalid type @{[ ref $arg ]}"
+                if defined $arg and
+                       ref $arg ne $check->{type};
 
             $arg = $check->{type} eq 'HASH'
                         ? {}
@@ -62,17 +65,24 @@ sub _get_positional_args {
 }
 
 sub _get_named_args {
-    my ($args, $spec) = @_;
+    my ($name, $args, $spec) = @_;
+    Debug "_get_named_args %s %s",
+          dump($args),
+          dump($spec);
+
+    $args = dclone $args;
+
     my %formatted = ();
     for my $check (@$spec) {
         my $arg = $args->{$check->{arg}};
         if ($check->{required}) {
-            die "$check->{arg} required"
+            die "$name:missing  require $check->{arg}"
                 unless defined $arg;
         }
         if ($check->{type}) {
-            die "$check->{arg} invalid type @{[ ref $arg ]}"
-                if defined $arg && ref $arg ne $check->{type};
+            die "$name:$check->{arg} invalid type @{[ ref $arg ]}"
+                if defined $arg && 
+                       ref $arg ne $check->{type};
 
             $arg = $check->{type} eq 'HASH'
                         ? {}
@@ -86,19 +96,44 @@ sub _get_named_args {
 
 }
 
+sub _extract_directives;
+sub _extract_directives {
+    my @search     = @_;
+    my @directives = ();
+    for my $arg (grep { ref $_ eq 'HASH' } @search) {
+        Debug "Arg = %s", dump($arg);
+        for my $key (keys %$arg) {
+            Debug "Key = %s\n", $key;
+            if ($key =~ /^:(\S+)/) {
+                Debug "Matching...\n";
+                push @directives, { $1 => $arg->{$key} };
+                Debug "%s", dump(\@directives);
+            } else {
+                if (ref $arg->{$key} eq 'HASH') {
+                    Debug "Searching deep %s", dump($arg->{$key});
+                    push @directives, _extract_directives ($arg->{$key});
+                }
+            }
+        }
+    }
+    return @directives;
+}
+
 sub actions {
     my ($self, $agent, $tag, $args) = @_;
 
     Trace;
-
-    __PACKAGE__->set_agent ($agent)
-        unless __PACKAGE__->get_agent;
 
     my $name = $self->name;
 
     my $action_impl = sub {
         return $self->impl->(@_);
     };
+
+    my @directives = _extract_directives $args;
+
+    Debug "directives for %s %s = %s",
+            $tag, dump($args), dump(\@directives);
 
     my $arg_spec = $self->arg_spec;
 
@@ -110,20 +145,22 @@ sub actions {
             for my $_args (@$args) {
                 my $formatted;
                 if (ref $_args eq 'ARRAY') {
-                    $formatted = _get_positional_args $_args, $spec;
+                    $formatted = _get_positional_args $tag, $_args, $spec;
                 }
                 elsif (ref $_args eq 'HASH') {
-                    $formatted = _get_named_args $_args, $spec;
+                    $formatted = _get_named_args $tag, $_args, $spec;
                 }
                 elsif(!ref $_args) {
-                    $formatted = _get_positional_args [$_args], $spec;
+                    $formatted = _get_positional_args $tag, [$_args], $spec;
                 }
                 if ($formatted) {
                     push @actions,
-                        Conform::Action->new('args' => $formatted,
-                                             'name' => $name,
-                                             'provider' => $self,
-                                             'impl' => $action_impl);
+                        Conform::Action->new('id'         => $formatted->{_id},
+                                             'args'       => $formatted,
+                                             'name'       => $name,
+                                             'provider'   => $self,
+                                             'impl'       => $action_impl,
+                                             'directives' => \@directives);
                 }
             }
         }
@@ -132,37 +169,40 @@ sub actions {
                 my $_args = $args->{$_arg};
                 my $formatted;
                 if (ref $_args eq 'ARRAY') {
-                    $formatted = _get_positional_args [$_arg, @$_args], $spec;
+                    $formatted = _get_positional_args $tag, [$_arg, @$_args], $spec;
                 }
                 elsif (ref $_args eq 'HASH') {
-                    $formatted = _get_named_args { $id => $_arg, %$_args }, $spec;
+                    $formatted = _get_named_args $tag, { $id => $_arg, %$_args }, $spec;
                 }
                 elsif(!ref $_args) {
-                    $formatted = _get_positional_args [$_arg, $_args], $spec;
+                    $formatted = _get_positional_args $tag, [$_arg, $_args], $spec;
                 }
                 if ($formatted) {
                     push @actions,
-                        Conform::Action->new('args' => $formatted,
-                                             'name' => $name,
-                                             'provider' => $self,
-                                             'impl' => $action_impl);
+                        Conform::Action->new('id'         => $formatted->{_id},
+                                             'args'       => $formatted,
+                                             'name'       => $name,
+                                             'provider'   => $self,
+                                             'impl'       => $action_impl,
+                                             'directives' => \@directives);
                 }
 
             }
         }
         elsif (!ref $args) {
+            my $formatted = _get_positional_args $tag, [$args], $spec;
             push @actions,
-                    Conform::Action->new('args' => (_get_positional_args [$args], $spec),
-                                         'name' => $name,
-                                         'provider' => $self,
-                                         'impl' => $action_impl);
+                    Conform::Action->new('id'         => $formatted->{_id},
+                                         'args'       => $formatted,
+                                         'name'       => $name,
+                                         'provider'   => $self,
+                                         'impl'       => $action_impl,
+                                         'directives' => \@directives);
 
         }
         return @actions;
     }
 
-
-    
     
     return () unless defined $args;
 
@@ -170,10 +210,11 @@ sub actions {
         my @actions = ();
         for my $value (@$args) {
             push @actions,
-                 Conform::Action->new('args' => $value,
-                                      'name' => $name,
-                                      'provider' => $self,
-                                      'impl' => $action_impl);
+                 Conform::Action->new('args'       => $value,
+                                      'name'       => $name,
+                                      'provider'   => $self,
+                                      'impl'       => $action_impl,   
+                                      'directives' => \@directives);
         }
         return @actions;
     }
@@ -182,133 +223,27 @@ sub actions {
         my @actions = ();
         for my $key (keys %$args) {
             push @actions,
-                 Conform::Action->new('args' => {$key => $args->{$key}},
-                                      'name' => $name,
-                                      'provider' => $self,
-                                      'impl' => $action_impl);
+                 Conform::Action->new('args'       => {$key => $args->{$key}},
+                                      'name'       => $name,
+                                      'provider'   => $self,
+                                      'impl'       => $action_impl,
+                                      'directives' => \@directives);
         }
         return @actions;
     }
 
-    return (Conform::Action->new('args' => $args,
-                                 'name' => $name,
-                                 'provider' => $self,
-                                 'impl' => $action_impl));
+    return (Conform::Action->new('args'       => $args,
+                                 'name'       => $name,
+                                 'provider'   => $self,
+                                 'impl'       => $action_impl,
+                                 'directives' => \@directives));
 
 }
 
-sub _actions {
-    my $self        = shift;
-    my $agent       = shift;
-    my $tag         = shift;
-    my $value       = shift;
-
-    __PACKAGE__->set_agent($agent);
-
-    my $name    = $self->name();
-
-    return () unless defined $value;
-
-    my $Impl = $self->impl;
-
-    my $_scalar_action = sub {
-        my $scalar = shift;
-        return Conform::Action->new(
-                'args' => $scalar,
-                'name' => $name,
-                'provider' => $self,
-                'impl' => sub {
-                    $Impl->($scalar,(shift @_), $agent)
-                });
-    };
-
-    my $_hash_action = sub {
-        my $hash = shift;
-        my @action = ();
-        for my $id (keys %$hash) {
-            my $args    = $hash->{$id}; 
-            my $action =
-                Conform::Action->new(
-                            'id' => $id,
-                            'args' => $hash->{$id},
-                            'name' => $name,
-                            'provider' => $self,
-                            'impl' => sub {
-                                $Impl->($id,
-                                                  $args,
-                                                  (shift @_),
-                                                  $agent)
-                            }
-                );
-
-            push @action, $action;
-        }
-
-        return @action;
-    };
-
-    my $_array_action = sub {
-        my $array = shift;
-
-        if (scalar @$array % 2 == 0
-                && !ref $array->[0]
-                &&  ref $array->[1]
-                &&  ref $array->[1] eq 'HASH') {
-
-            my @action = ();
-
-            for (my $i = 0; $i < scalar @$array; $i+=2) {
-                my $id = $array->[$i];
-                my $args = $array->[$i+1];
-                push @action, Conform::Action->new(
-                                'id' => $id,
-                                'args' => $args,
-                                'name' => $name,
-                                'provider' => $self,
-                                'impl' => sub {
-                                    $Impl->($id, $args, (shift @_), $agent)
-                                });
-            }
-    
-            return @action;
-         }
-
-        return (Conform::Action->new(
-                    'id' => undef,
-                    'args' => $array,
-                    'name' => $self->name(),
-                    'provider' => $self,
-                    'impl' => sub {
-                        $Impl->($array,(shift @_), $agent)
-                    }));
-    };
-
-    return $_scalar_action->($value)
-            if !ref $value;
-
-    return $_hash_action->($value)
-            if ref $value eq 'HASH';
-
-    my @return;
-
-    if (ref $value eq 'ARRAY') {
-        VALUE: for my $arg (@$value) {
-            unless (ref $arg) {
-                push @return, $_scalar_action->($arg);
-                next VALUE;
-            }
-            if (ref $arg eq 'HASH') {
-                push @return, $_hash_action->($arg);
-                next VALUE;
-            }
-            if (ref $arg eq 'ARRAY') {
-                push @return, $_array_action->($arg);
-                next VALUE;
-            }
-        }
-    }
-
-    return @return;
+sub get_agent {
+    my $context = Conform::Work->getExecutionContext();
+    my $provider = $context->provider;
+    return $provider->agent;
 }
 
 sub Action {
@@ -358,7 +293,7 @@ sub named_args {
       return $return;
     }
   
-    # Named parameters
+    # Named args
     for (my $i = 0; $i < @$defaults; $i += 2) {
       my($key, $value) = ($defaults->[$i], $defaults->[$i + 1]);
       $return->{$key} = $value if defined $value;
@@ -401,11 +336,16 @@ sub i_isa_mergeall {
     my $agent = __PACKAGE__->get_agent;
     if (blessed $_[0]
          and $_[0]->isa('Conform::Action')) {
-            ($runtime, $site) = ($_[0]->provider->runtime, $_[0]->provider->site);
+            ($runtime, $site) 
+                = ($_[0]->provider->runtime, $_[0]->provider->site);
     } else {
-        ($runtime, $site) = ($agent->runtime, $agent->site);
+        ($runtime, $site) 
+            = ($agent->runtime, $agent->site);
     }
-    return Conform::Core::i_isa_mergeall ($site->nodes, $runtime->iam, @_);
+
+    return Conform::Core::i_isa_mergeall ($site->nodes,
+                                          $runtime->iam,
+                                          @_);
 }
 
 1;

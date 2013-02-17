@@ -48,7 +48,19 @@ has 'list' => (is =>'rw', isa => 'ArrayRef', default => sub {[]});
 sub enqueue {
     my $self   = shift;
     my $object = shift;
-    push @{$self->list}, $object;
+    my $list   = $self->list;
+    if ($object->can('prio')) {
+        for (my $i = 0; $i < scalar @$list; $i++) {
+            my $item = $list->[$i];
+            my $prio = $item->can('prio')
+                            ? $item->prio
+                            : 50;
+            if ($prio > $object->prio) {
+                return $self->insert_at($i, $object);
+            }
+        }
+    }
+    push @$list, $object;
 }
 
 =over 4
@@ -123,6 +135,23 @@ sub find {
     } else {
         return $self->find_multi($check);
     }
+}
+
+=over 4
+
+=item * insert_at
+
+=back
+
+=cut
+
+sub insert_at {
+    my $self   = shift;
+    my $idx    = shift;
+    my $object = shift;
+
+    my $list = $self->list;
+    splice @$list, $idx, 0, $object;
 }
 
 

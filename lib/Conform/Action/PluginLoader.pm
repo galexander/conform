@@ -7,6 +7,9 @@ with 'Conform::PluginLoader';
 
 sub _find_attr {
     my ($name, $attr) = @_;
+
+    Trace;
+
     for my $attribute (@{$attr ||[]}) {
         my ($key, $value) = ref $attribute eq 'HASH'
                                 ? each %$attribute
@@ -20,6 +23,9 @@ sub _find_attr {
 
 sub _find_attrs {
     my ($name, $attr) = @_;
+
+    Trace;
+
     my @attr = ();
     for (@{$attr || []}) {
         my ($key, $value) = each %$_;
@@ -70,8 +76,8 @@ sub register {
     my $self   = shift;
     Debug "Register %s", dump(\@_);
     my %args = @_;
-    my ($plugin, $name, $id, $version, $impl, $attr)
-        = @args{qw(plugin name id version impl attr)};
+    my ($agent, $plugin, $name, $id, $version, $impl, $attr)
+        = @args{qw(agent plugin name id version impl attr)};
 
     $attr ||= [];
     
@@ -106,7 +112,8 @@ sub register {
     }
 
     my $object = 
-        $plugin->new('name'     => $name,
+        $plugin->new('agent'    => $agent,
+                     'name'     => $name,
                      'id'       => $id,
                      'version'  => $version,
                      'attr'     => $attr,
@@ -132,7 +139,7 @@ sub get_plugins {
     Debug "%s", dump($finder);
 
     for ($finder->plugins) {
-        Debug "Found Potential Plugin Provider %s", $_;
+        Debug "Found potential plugin provider %s", $_;
         $self->plugin($_);
     }
 

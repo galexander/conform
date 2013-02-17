@@ -23,16 +23,46 @@ by a conform agent.
 
 =cut
 
+sub BUILD {
+    my $self = shift;
+    my $directives = $self->directives;
+    for (@$directives) {
+        my ($directive, $arg) = each %$_;
+        if ($directive eq 'prio') {
+            $self->prio($arg);
+        }
+        if ($directive eq 'depend') {
+            my $dependencies = $self->dependencies;
+            if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
+                push @$dependencies,
+                        { 'action.name' => $1, 'action.id' => $2 };
+            }
+        }
+    }
+    
+    Debug "dependencies = %s\n", dump($self->dependencies);
+    
+    $self;
+
+}
+
 =head1  METHODS
 
 =over
 
-=item B<dependencies>
+=item B<directives>
 
-    $dependencies = $action->dependencies;
-    $action->dependencies(\@dependencies);
+    $directives = $action->directives;
+
+=back
 
 =cut
+
+has 'directives' => (
+    'is' => 'rw',
+    'isa' => 'ArrayRef',
+    'default' => sub { [] },
+);
 
 =item B<run>
 
@@ -66,11 +96,6 @@ sub run { Trace;
 }
 
 
-
-sub exec {
-
-}
-
 has 'dependencies' => (
     is => 'rw',
     isa => 'ArrayRef',
@@ -91,6 +116,15 @@ has 'args' => (
     required => 1,
 );
 
+=item B<provider>
+
+    my $provider = $action->provider;
+
+=cut
+
+has 'provider' => (
+    is => 'rw',
+);
 
 =item B<satisfies>
 
@@ -189,7 +223,7 @@ sub satisfies { Trace;
     }
 
 
-    Debug "dependency (%s) - not satisfied";
+    Debug "dependency (%s) - not satisfied", dump($dependency);
     return 0;
 }
 

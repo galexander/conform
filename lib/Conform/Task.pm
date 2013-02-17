@@ -3,6 +3,7 @@ use Mouse;
 use Data::Dump qw(dump);
 use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
+use Scalar::Util qw(blessed);
 
 with 'Conform::Work';
 
@@ -40,12 +41,6 @@ has 'dependencies' => (
     default => sub { [] },
 );
 
-=item B<satisfies>
-
-    $action->satisfies($dependency);
-
-=cut
-
 =item B<run>
 
     $task->run();
@@ -60,6 +55,7 @@ sub run { Trace;
           $self->name;
 
     my $function = $self->impl;
+
     my @result   = $function->($self, @_);
 
     Debug "Task (id=%s,name=%s,args=%s) returned %s",
@@ -71,8 +67,6 @@ sub run { Trace;
             ? @result
             :\@result;
 }
-
-
 
 =back
 

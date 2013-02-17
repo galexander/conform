@@ -117,6 +117,8 @@ sub execute { Trace;
           $self->name;
 
 
+    $self->setExecutionContext();
+
     my @result   = $self->run(@_);
 
     Debug "Action (id=%s,name=%s) returned %s",
@@ -132,6 +134,30 @@ sub execute { Trace;
             ? @result
             :\@result;
 }
+
+our $context;
+
+sub setExecutionContext {
+    my $package = shift;
+    my $context = shift;
+    if (blessed $package and !$context) {
+        $context = $package;
+    }
+                
+    Trace "set execution context(%s)",
+          dump($context);
+}
+
+sub getExecutionContext {
+    my $package = shift;
+    Trace "get execution context(%s)",
+          dump($context);
+
+    return $context;
+
+}
+
+
 
 1;
 
