@@ -27,7 +27,10 @@ Generic 'Conform::Action' scheduler/executor with dependency resolution
 use Mouse;
 use Conform::Queue;
 use Data::Dumper;
+use Data::Dump qw(dump);
 use Conform::Debug qw(Debug Trace);
+use Scalar::Util qw(refaddr);
+use Conform::Logger qw($log);
 
 has 'executor' => (
     is => 'rw',
@@ -244,7 +247,26 @@ Also executes actions 'waiting' for this action.
 sub execute { Trace "execute(@{[ $_[1]->name ]})";
     my $self     = shift;
     my $action   = shift;
-    
+    my $stack    = shift || [];
+
+    for (@$stack) {
+        if (refaddr $_ eq refaddr $action) {
+            $log->error("Circular dependency detected for id=@{[$action->id]}, name=@{[$action->name]}, args=@{[dump($action->args)]}");
+            $log->error("Waiting...");
+            for my $waiting (@{$self->waiting->list ||[]}) {
+                $log->errorf("waiting: ", $waiting);
+            }
+            $log->errorf("Runnable...", $self->runnable);
+            for my $runnable (@{$self->runnable->list ||[]}) {
+                $log->errorf("runnable:$runnable");
+            }
+
+            die "dependency resolution error";
+        }
+    }
+
+    push @$stack, $action;
+
     # Put action on runnable queue
     $self->runnable->enqueue($action);
 
@@ -258,10 +280,11 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     my $dependencies = $action->dependencies;
     for my $dependency (@$dependencies) {
         my $found = $self->find_dependency ($dependency);
+        Debug "found dependency %s", dump($found);
         if ($found) {
             unless($found->complete) {
                 # Execute found (not complete) actions
-                return $self->execute($found);
+                return $self->execute($found, $stack);
             }
         } else {
             # Hold off until we execute an action that can
@@ -281,6 +304,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
         $executor->execute($action);
     }
 
+    # Remove from runnable queue
     $self->runnable->remove($action);
 
     # Move action to the 'completed' queue

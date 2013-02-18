@@ -130,10 +130,10 @@ sub actions {
         return $self->impl->(@_);
     };
 
-    my @directives = _extract_directives $args;
+    #my @directives = _extract_directives $args;
 
-    Debug "directives for %s %s = %s",
-            $tag, dump($args), dump(\@directives);
+    #Debug "directives for %s %s = %s",
+    #        $tag, dump($args), dump(\@directives);
 
     my $arg_spec = $self->arg_spec;
 
@@ -160,7 +160,7 @@ sub actions {
                                              'name'       => $name,
                                              'provider'   => $self,
                                              'impl'       => $action_impl,
-                                             'directives' => \@directives);
+                                             'directives' => [_extract_directives $_args]);
                 }
             }
         }
@@ -184,7 +184,7 @@ sub actions {
                                              'name'       => $name,
                                              'provider'   => $self,
                                              'impl'       => $action_impl,
-                                             'directives' => \@directives);
+                                             'directives' => [_extract_directives $_args]);
                 }
 
             }
@@ -197,7 +197,7 @@ sub actions {
                                          'name'       => $name,
                                          'provider'   => $self,
                                          'impl'       => $action_impl,
-                                         'directives' => \@directives);
+                                         'directives' => []);
 
         }
         return @actions;
@@ -214,7 +214,7 @@ sub actions {
                                       'name'       => $name,
                                       'provider'   => $self,
                                       'impl'       => $action_impl,   
-                                      'directives' => \@directives);
+                                      'directives' => [_extract_directives $value]);
         }
         return @actions;
     }
@@ -227,7 +227,7 @@ sub actions {
                                       'name'       => $name,
                                       'provider'   => $self,
                                       'impl'       => $action_impl,
-                                      'directives' => \@directives);
+                                      'directives' => [_extract_directives $args->{$key}]);
         }
         return @actions;
     }
@@ -236,7 +236,7 @@ sub actions {
                                  'name'       => $name,
                                  'provider'   => $self,
                                  'impl'       => $action_impl,
-                                 'directives' => \@directives));
+                                 'directives' => []));
 
 }
 

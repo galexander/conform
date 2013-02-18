@@ -27,15 +27,18 @@ sub BUILD {
     my $self = shift;
     my $directives = $self->directives;
     for (@$directives) {
-        my ($directive, $arg) = each %$_;
-        if ($directive eq 'prio') {
-            $self->prio($arg);
-        }
-        if ($directive eq 'depend') {
-            my $dependencies = $self->dependencies;
-            if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
-                push @$dependencies,
-                        { 'action.name' => $1, 'action.id' => $2 };
+        Debug "Directive=%s", dump($_);
+        for my $directive (keys %$_) {
+            my $arg = $_->{$directive};
+            if ($directive eq 'prio') {
+                $self->prio($arg);
+            }
+            if ($directive eq 'depend') {
+                my $dependencies = $self->dependencies;
+                if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
+                    push @$dependencies,
+                            { 'action.name' => $1, 'action.id' => $2 };
+                }
             }
         }
     }
@@ -189,8 +192,6 @@ sub satisfies { Trace;
     my $self       = shift;
     my $dependency = shift;
 
-    Debug "satisfies(%s)", dump($dependency);
-
     if (ref $dependency eq 'HASH') {
 
         for my $check (keys %$dependency) {
@@ -200,17 +201,30 @@ sub satisfies { Trace;
                 if ($self->can($param) && 
                    ($dependency->{$check} eq $self->$param())) {
 
-                    Debug "Action (id=%s,name=%s,args=%s) satisfies dependency %s",
+                    Debug "Action (id=%s,name=%s,args=%s) satisfies dependency %s=%s",
                           $self->id,
                           $self->name,
                           dump($self->args),
-                          dump($dependency);
+                          $check,
+                          dump($dependency->{$check});
 
-                    return 1;
+                    delete $dependency->{$check};
                 }
             }
         }
+
+        if (keys %$dependency) {
+            Debug "Unmet dependencies @{[ dump ($dependency) ]}";
+            return 0;
+        } else {
+            Debug "All dependencies met";
+            return 1;
+        }
     }
+
+    # TODO
+
+    return 0;
 
     if (_check_args $dependency, $self->args) {
         Debug "Action (id=%s,name=%s,args=%s) satisfies dependency %s",
