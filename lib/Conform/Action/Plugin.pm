@@ -130,11 +130,6 @@ sub actions {
         return $self->impl->(@_);
     };
 
-    #my @directives = _extract_directives $args;
-
-    #Debug "directives for %s %s = %s",
-    #        $tag, dump($args), dump(\@directives);
-
     my $arg_spec = $self->arg_spec;
 
     if (defined $arg_spec) {

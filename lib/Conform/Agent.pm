@@ -33,7 +33,9 @@ functionality provided by a L<Conform::Runtime>
 A Conform::Runtime provides
 =over 4
 
-=item   implementation of and actions
+=item   implementation of actions
+
+=item   implementation of tasks 
 
 =item   implementation of data resolvers
 
@@ -129,13 +131,13 @@ sub nodes {
 }
 
 sub schedule {
-    my ($self, $name, $action) = @_;
+    my ($self, $name, $work) = @_;
 
-    Trace "%s %s", $name, $action;
+    Trace "%s %s %s", $name, $work;
 
-    Debug("scheduling action @{[$name]} -> @{[ dump($action) ]}");
+    Debug("scheduling work @{[$name]} -> @{[ dump($work) ]}");
 
-    $self->scheduler->schedule($action);
+    $self->scheduler->schedule($work);
 }
 
 sub merge_node_changes {
@@ -187,24 +189,23 @@ sub merge_node_changes {
                         : $cur_isa),
                     $isa)) {
 
-            $self->extract_node_actions($isa);
+            $self->extract_node_work($isa);
         }
     }
 
     for my $key (keys %$new) {
         unless (exists $cur->{$key}) {
-            $self->identify_action($key, $key => $new->{$key});
+            $self->identify_work($key, $key => $new->{$key});
         } else {
             for (_subtract $cur->{$key}, $new->{$key}) {
-                print "key=$key\n";
-                $self->identify_action($key, $key => $_);
+                $self->identify_work($key, $key => $_);
             }
         }
     }
 }
 
 sub execute {
-    my ($self, $action) = @_;
+    my ($self, $work) = @_;
 
     Trace;
 
@@ -212,18 +213,18 @@ sub execute {
     local $Storable::Deparse = 1;
     my $copy = dclone $self->node;
 
-    $action->execute($self);
+    $work->execute($self);
 
     $self->merge_node_changes($self->node, $copy);
 
 }
 
-sub identify_action {
+sub identify_work {
     my $self = shift;
     my $name = shift;
     my $tag  = shift;
     my $value = shift;
-    $log->debug("identifying task $tag");
+    $log->debug("identifying work for $tag");
     my $provider = $self->runtime->find_provider(Action => $tag);
     if ($provider) {
         Debug "found provider %s for %s with %s tag = %s",
@@ -241,32 +242,54 @@ sub identify_action {
                    ? @actions
                    :\@actions;
     }
+
+    Debug "action for $tag not found - checking task providers";
+
+    $provider = $self->runtime->find_provider(Task => $tag);
+    if ($provider) {
+        Debug "found provider %s for %s with %s tag = %s",
+               dump($provider),
+               $name,
+                dump($value),
+               $tag;
+
+        my $task = $provider->task($self, $tag,  $value);
+
+        $self->schedule($tag, $task, { unique => 'name' });
+    
+        return wantarray
+            ? ($task)
+            : [$task];
+    }
+
+    return wantarray
+        ? ()
+        : [];
 }
 
-
-sub extract_actions {
+sub extract_work {
     my $self = shift;
     my $name = shift;
     my $hash = shift;
 
-    $log->debug("extract_actions for $name");
-    my @actions = ();
+    $log->debug("extract_work for $name");
+    my @work = ();
     for my $tag (grep !/ISA/, keys %$hash) {
-        push @actions, $self->identify_action($name, $tag => $hash->{$tag});
+        push @work, $self->identify_work($name, $tag => $hash->{$tag});
     }
     return wantarray 
-            ? @actions
-            :\@actions;
+            ? @work
+            :\@work;
 }
 
-sub extract_node_actions {
+sub extract_node_work {
     my $self = shift;
     my $node = shift;
 
     Trace;
 
     $self->site->walk
-            ($node, sub { $self->extract_actions (@_) });
+            ($node, sub { $self->extract_work(@_) });
 }
 
 sub compile {
@@ -274,7 +297,7 @@ sub compile {
     
     Trace;
 
-    $self->extract_node_actions($self->iam);
+    $self->extract_node_work($self->iam);
 
 }
 

@@ -21,6 +21,16 @@ sub action_providers {
             : ($providers->{Action}  ||=[]);
 
 }
+
+sub task_providers {
+    my $self = shift;
+    my $providers = $self->providers;
+    return wantarray
+            ? @{$providers->{Task} ||=[]}
+            : ($providers->{Task}  ||=[]);
+
+}
+
 has data_providers => (
     is => 'rw',
     isa => 'ArrayRef',
@@ -79,6 +89,10 @@ sub boot {
     Debug "Loading action providers for %s", blessed $self;
     $self->_discover_providers
         ('Action');
+
+    Debug "Loading task providers for %s",  blessed $self;
+    $self->_discover_providers
+        ('Task');
 
     Debug "Loading data providers for %s",   blessed $self;
     $self->_discover_providers

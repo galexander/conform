@@ -9,20 +9,28 @@ with 'Conform::Work';
 
 =head1  NAME
 
-Conform::Work
+Conform::Task
 
 =head1  SYNSOPSIS
 
-use Conform::Work;
+use Conform::Task;
 
 =head1 ABSTRACT
 
-Conform::Work - descrete unit of work to be run
+Conform::Task - descrete unit of work to be run
 by a conform agent.
 
 =head1  DESCRIPTION
 
 =cut
+
+sub BUILD {
+    my $self = shift;
+    my $constraint = $self->constraint;
+    $constraint->{unique} = 'name';
+    $self;
+
+}
 
 =head1  METHODS
 

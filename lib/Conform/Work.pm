@@ -55,7 +55,6 @@ has 'name' => (
     is => 'rw',
 );
 
-
 =item B<prio>
 
     $work->prio;
@@ -101,6 +100,18 @@ has 'impl' => (
     is  => 'rw',
     isa => 'CodeRef',
     required => 1,
+);
+
+=item B<constraint>
+    
+    my $constraint = $work->constraint();
+
+=cut
+
+has 'constraint' => (
+    is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} },
 );
 
 =item B<execute>

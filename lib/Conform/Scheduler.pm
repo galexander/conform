@@ -9,16 +9,16 @@ Conform::Scheduler
     
     my $scheduler = Conform::Scheduler->new();
 
-    $scheduler->schedule($action);
+    $scheduler->schedule($work);
 
-    while ($scheduler->actions) {
+    while ($scheduler->work) {
         $scheduler->run();
     }
 
 
 =head1  DESCRIPTION
 
-Generic 'Conform::Action' scheduler/executor with dependency resolution
+Generic 'Conform::Work' scheduler/executor with dependency resolution
 
 =head1  METHODS
     
@@ -65,7 +65,7 @@ has 'runnable' => (
 
 =item * has_work 
 
-Returns true if there are outstanding actions in the 'pending' queue,
+Returns true if there are outstanding work in the 'pending' queue,
 false otherwise.
 
 =back
@@ -80,8 +80,8 @@ sub has_work {
 
 =item * schedule
 
-Schedule an action to be executed.
-Executes any 'waiting' actions prior to being scheduled.
+Schedule work to be executed.
+Executes any 'waiting' work prior to being scheduled.
 
 =back
 
@@ -90,9 +90,29 @@ Executes any 'waiting' actions prior to being scheduled.
 
 sub schedule { Trace "schedule(@{[Dumper($_[1])]})";
     my $self   = shift;
-    my $action = shift;
+    my $work   = shift;
+    
+    my $constraint = $work->constraint;
 
-    $self->pending->enqueue($action);
+    my $schedule = 1;
+
+    if (keys %$constraint) {
+        if (my $check = $constraint->{unique}) {
+            my $existing = $self->pending->find(
+                single => sub {
+                    my $job = shift;
+                    $job->can($check) && $job->$check eq $work->$check;
+            });
+
+            $schedule = !$existing;
+
+            Debug "work %s already exists", $work->$check
+        }
+    }
+
+        
+    $self->pending->enqueue($work)
+        if $schedule;
 
     Trace "schedule - pending = %d, waiting = %d, completed = %d, runnable = %d\n",
         $self->pending->size,
@@ -105,9 +125,9 @@ sub schedule { Trace "schedule(@{[Dumper($_[1])]})";
 
 =item * wait
 
-Place an action on the waiting queue.
-When an action is scheduled or executed
-that satisfies the outstanding dependency then this action
+Place work on the waiting queue.
+When work is scheduled or executed
+that satisfies the outstanding dependency then this work
 will be run.
 
 =back
@@ -116,15 +136,15 @@ will be run.
 
 sub wait { Trace "wait(@{[ Dumper ($_[1]) ]}";
     my $self   = shift;
-    my $action = shift;
-    $self->waiting->enqueue($action);
+    my $work   = shift;
+    $self->waiting->enqueue($work);
 }
 
 =over 4
 
 =item * find_waiting
 
-Find all actions 'waiting' for this action.
+Find all work 'waiting'
 
 =back
 
@@ -132,13 +152,13 @@ Find all actions 'waiting' for this action.
 
 sub find_waiting { Trace "find_waiting(@{[Dumper($_[1])]})";
     my $self   = shift;
-    my $action = shift;
+    my $work   = shift;
 
     my @found = $self->waiting->extract(
         multi => sub {
             my $dependencies = $_->dependencies;
             for my $dependency (@$dependencies) {
-                if ($action->satisfies($dependency)) {
+                if ($work->can('satisfies') && $work->satisfies($dependency)) {
                     return 1;
                 }
             }
@@ -149,7 +169,7 @@ sub find_waiting { Trace "find_waiting(@{[Dumper($_[1])]})";
         multi => sub {
             my $dependencies = $_->dependencies;
             for my $dependency (@$dependencies) {
-                if ($action->satisfies($dependency)) {
+                if ($work->can('satisfies') && $work->satisfies($dependency)) {
                     return 1;
                 }
             }
@@ -164,8 +184,8 @@ sub find_waiting { Trace "find_waiting(@{[Dumper($_[1])]})";
 
 =item * find_depenency
 
-Find pending or completed action that satisfies
-an action dependency.
+Find pending or completed work that satisfies
+a dependency.
 
 =back
 
@@ -180,7 +200,8 @@ sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
     Trace "searching completed queue";
     $found = $self->completed->find(
         single => sub {
-            shift->satisfies($dependency);
+            my $work = shift;
+            $work->can('satisfies') && $work->satisfies($dependency);
         });
 
     if ($found) {
@@ -190,7 +211,8 @@ sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
     Trace "searching pending queue";
     $found = $self->pending->extract(
         single => sub {
-            shift->satisfies($dependency);
+            my $work = shift;
+            $work->can('satisfies') && $work->satisfies($dependency);
         });
 
     if ($found) {
@@ -201,7 +223,8 @@ sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
     Trace "searching runnable queue";
     $found = $self->runnable->extract(
         single => sub {
-            shift->satisfies($dependency);
+            my $work = shift;
+            $work->can('satisfies') && $work->satisfies($dependency);
         });
 
 
@@ -210,14 +233,14 @@ sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
 
 sub complete { Trace "complete(@{[Dumper($_[1])]})";
     my $self   = shift;
-    my $action = shift;
+    my $work   = shift;
 
-    $action->complete(1);
+    $work->complete(1);
 
-    $self->completed->enqueue($action);
+    $self->completed->enqueue($work);
 
     # Execute waiting after we've executed
-    my @waiting = $self->find_waiting ($action);
+    my @waiting = $self->find_waiting ($work);
 
     for my $waiting (@waiting) {
         $self->execute($waiting)
@@ -237,8 +260,8 @@ sub run { Trace "run()";
 
 =item * execute
 
-Execute an action. Ensure that dependencies are satisfied.
-Also executes actions 'waiting' for this action.
+Execute work. Ensure that dependencies are satisfied.
+Also executes work 'waiting' for this peice of work
 
 =back
 
@@ -246,12 +269,12 @@ Also executes actions 'waiting' for this action.
 
 sub execute { Trace "execute(@{[ $_[1]->name ]})";
     my $self     = shift;
-    my $action   = shift;
+    my $work     = shift;
     my $stack    = shift || [];
 
     for (@$stack) {
-        if (refaddr $_ eq refaddr $action) {
-            $log->error("Circular dependency detected for id=@{[$action->id]}, name=@{[$action->name]}, args=@{[dump($action->args)]}");
+        if (refaddr $_ eq refaddr $work) {
+            $log->error("Circular dependency detected for id=@{[$work->id]}, name=@{[$work->name]}");
             $log->error("Waiting...");
             for my $waiting (@{$self->waiting->list ||[]}) {
                 $log->errorf("waiting: ", $waiting);
@@ -265,10 +288,10 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
         }
     }
 
-    push @$stack, $action;
+    push @$stack, $work;
 
-    # Put action on runnable queue
-    $self->runnable->enqueue($action);
+    # Put work on runnable queue
+    $self->runnable->enqueue($work);
 
     Trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
@@ -277,38 +300,38 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
         $self->runnable->size;
 
     # Find all dependencies
-    my $dependencies = $action->dependencies;
+    my $dependencies = $work->dependencies;
     for my $dependency (@$dependencies) {
         my $found = $self->find_dependency ($dependency);
         Debug "found dependency %s", dump($found);
         if ($found) {
             unless($found->complete) {
-                # Execute found (not complete) actions
+                # Execute found (not complete) work
                 return $self->execute($found, $stack);
             }
         } else {
-            # Hold off until we execute an action that can
+            # Hold off until we execute work that can
             # satisfy this dependency
-            $self->runnable->remove($action);
-            $self->wait($action);
+            $self->runnable->remove($work);
+            $self->wait($work);
             return;
         }
     }
 
-    # Execute the action (This can call 'schedule' as well)
-    Trace "executing %s %s", $action->id, $action->name;
+    # Execute the work (This can call 'schedule' as well)
+    Trace "executing %s %s", $work->id, $work->name;
     my $executor = $self->executor;
     if (ref $executor eq 'CODE') {
-        $executor->($action);
+        $executor->($work);
     } else {
-        $executor->execute($action);
+        $executor->execute($work);
     }
 
     # Remove from runnable queue
-    $self->runnable->remove($action);
+    $self->runnable->remove($work);
 
-    # Move action to the 'completed' queue
-    $self->complete($action);
+    # Move work to the 'completed' queue
+    $self->complete($work);
 
     Trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
