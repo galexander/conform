@@ -13,6 +13,10 @@ Conform::Queue
     $q->extract_single;
     $q->extract_multi;
     $q->remove;
+    $q->remove_at;
+    $q->insert;
+    $q->insert_at;
+    $q->find;
     $q->traverse;
 
 =head1 DESCRIPTION
@@ -135,6 +139,37 @@ sub find {
     } else {
         return $self->find_multi($check);
     }
+}
+
+=over 4
+
+=item * traverse
+
+=back
+
+=cut
+
+sub traverse {
+    my $self = shift;
+    my $sub  = shift;
+
+    for (@{$self->list}) {
+        $sub->($_);
+    }
+
+}
+
+=over 4
+
+=item * insert
+
+=back
+
+=cut
+
+sub insert {
+    my $self = shift;
+    $self->insert_at(0, shift);
 }
 
 =over 4
@@ -279,7 +314,9 @@ sub find_multi {
             push @found, $_;
         }
     }
-    return @found;
+    return wantarray
+        ? @found
+        :\@found;
 }
 
 =head1  AUTHOR
