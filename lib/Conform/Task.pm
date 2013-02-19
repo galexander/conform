@@ -5,7 +5,7 @@ use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
 use Scalar::Util qw(blessed);
 
-with 'Conform::Work';
+extends 'Conform::Work';
 
 =head1  NAME
 
@@ -17,8 +17,7 @@ use Conform::Task;
 
 =head1 ABSTRACT
 
-Conform::Task - descrete unit of work to be run
-by a conform agent.
+Conform::Task - descrete unit of work to be run by a conform agent.
 
 =head1  DESCRIPTION
 
@@ -29,25 +28,11 @@ sub BUILD {
     my $constraint = $self->constraint;
     $constraint->{unique} = 'name';
     $self;
-
 }
 
 =head1  METHODS
 
 =over
-
-=item B<dependencies>
-
-    $dependencies = $action->dependencies;
-    $action->dependencies(\@dependencies);
-
-=cut
-
-has 'dependencies' => (
-    is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [] },
-);
 
 =item B<run>
 

@@ -4,7 +4,7 @@ use Data::Dump qw(dump);
 use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
 
-with 'Conform::Work';
+extends 'Conform::Work';
 
 =head1  NAME
 
@@ -16,56 +16,15 @@ use Conform::Action;
 
 =head1 ABSTRACT
 
-Conform::Action - descrete unit of work to be run
-by a conform agent.
+Conform::Action - descrete unit of work to be run by a conform agent.
 
 =head1  DESCRIPTION
 
 =cut
 
-sub BUILD {
-    my $self = shift;
-    my $directives = $self->directives;
-    for (@$directives) {
-        Debug "Directive=%s", dump($_);
-        for my $directive (keys %$_) {
-            my $arg = $_->{$directive};
-            if ($directive eq 'prio') {
-                $self->prio($arg);
-            }
-            if ($directive eq 'depend') {
-                my $dependencies = $self->dependencies;
-                if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
-                    push @$dependencies,
-                            { 'action.name' => $1, 'action.id' => $2 };
-                }
-            }
-        }
-    }
-    
-    Debug "dependencies = %s\n", dump($self->dependencies);
-    
-    $self;
-
-}
-
 =head1  METHODS
 
 =over
-
-=item B<directives>
-
-    $directives = $action->directives;
-
-=back
-
-=cut
-
-has 'directives' => (
-    'is' => 'rw',
-    'isa' => 'ArrayRef',
-    'default' => sub { [] },
-);
 
 =item B<run>
 
@@ -99,18 +58,9 @@ sub run { Trace;
 }
 
 
-has 'dependencies' => (
-    is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [] },
-);
-
 =item B<args>
 
     $args = $action->args;
-
-Action args can be named or positional.
-Examples:
 
 =cut
 
@@ -119,134 +69,25 @@ has 'args' => (
     required => 1,
 );
 
-=item B<provider>
-
-    my $provider = $action->provider;
-
-=cut
-
-has 'provider' => (
-    is => 'rw',
-);
-
-=item B<satisfies>
-
-    $action->satisfies($dependency);
-
-=cut
-
-
-sub _check_args {
-    my ($dependency, $args) = @_;
-
-    return 0 unless defined $dependency and
-                    defined $args;
-
-    if (!ref $dependency) {
-        if (!ref $args) {
-            return 1 if $args eq $dependency;
-        }
-
-        if (ref $args eq 'HASH') {
-            for my $value (grep !ref, values %$args) {
-                if ($value eq $dependency) {
-                    return 1;
-                }
-            }
-        }
-        if (ref $args eq 'ARRAY') {
-            if (grep /^\Q$dependency\E$/, @$args) {
-                return 1;
-            }
-        }
-
-    } else {
-
-        if (ref $dependency eq 'HASH') {
-
-            if (!ref $args) {
-                return 1 if grep /^\Q$dependency\E$/, values %$args;
-            }
-
-            if (ref $args eq 'HASH') {
-                for my $check (keys %$dependency) {
-                    return 1
-                        if (exists $args->{$check} &&
-                           ($args->{$check} eq $dependency->{$check}));
-                }
-            }
-
-            if (ref $args eq 'ARRAY') {
-                for my $check (values %$dependency) {
-                    return 1
-                        if grep /^\Q$check\E$/, values %$args;
-                }
-            }
-        }
-    }
-
-    return 0;
-}
-
-sub satisfies { Trace;
-    my $self       = shift;
-    my $dependency = shift;
-
-    if (ref $dependency eq 'HASH') {
-
-        for my $check (keys %$dependency) {
-
-            if ($check =~ /^action\.(\S+)/) {
-                my $param = $1;
-                if ($self->can($param) && 
-                   ($dependency->{$check} eq $self->$param())) {
-
-                    Debug "Action (id=%s,name=%s,args=%s) satisfies dependency %s=%s",
-                          $self->id,
-                          $self->name,
-                          dump($self->args),
-                          $check,
-                          dump($dependency->{$check});
-
-                    delete $dependency->{$check};
-                }
-            }
-        }
-
-        if (keys %$dependency) {
-            Debug "Unmet dependencies @{[ dump ($dependency) ]}";
-            return 0;
-        } else {
-            Debug "All dependencies met";
-            return 1;
-        }
-    }
-
-    # TODO
-
-    return 0;
-
-    if (_check_args $dependency, $self->args) {
-        Debug "Action (id=%s,name=%s,args=%s) satisfies dependency %s",
-              $self->id,
-              $self->name,
-              dump($self->args),
-              dump($dependency);
-    
-            return 1;
-    }
-
-
-    Debug "dependency (%s) - not satisfied", dump($dependency);
-    return 0;
-}
-
 =back
-
 
 =head1  SEE ALSO
 
-L<conform> L<Conform::Action::Plugin>
+=over 4
+
+=item
+
+L<Conform::Work>
+
+=item
+
+L<Conform::Task>
+
+=item
+
+L<Conform::Action::Plugin>
+
+=back
 
 =head1  AUTHOR
 

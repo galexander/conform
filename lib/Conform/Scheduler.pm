@@ -61,7 +61,26 @@ has 'runnable' => (
     default => sub { new Conform::Queue() }
 );
 
+
 =over 4
+
+=item * scheduled
+
+=cut
+
+sub scheduled {
+    my $self = shift;
+    my $work = shift;
+
+    my $found = $self->pending->find(
+                    single => sub {
+                        my $job  = shift;
+                        return $job if $job->name eq $work->name;
+                    });
+    
+    return $found;
+
+}
 
 =item * has_work 
 

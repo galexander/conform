@@ -75,14 +75,14 @@ sub init {
     $self->_load_nodes;
 }
 
-=head2  walk
+=head2  traverse
 
 =cut
 
-sub _walk;
-sub _walk {
+sub _traverse;
+sub _traverse {
     my ($nodes, $key, $code, $seen) = @_;
-    $log->trace("_walk $key");
+    $log->trace("_traverse $key");
 
     $seen ||= {};
 
@@ -105,7 +105,7 @@ sub _walk {
                             ? (sort @$isa)
                             : ($isa)) {
 
-            _walk $nodes, $class, $code, $seen;
+            _traverse $nodes, $class, $code, $seen;
 
         }
     }
@@ -114,8 +114,8 @@ sub _walk {
     
 }
 
-sub walk;
-sub walk {
+sub traverse;
+sub traverse {
     my $self    = shift;
     my $from    = shift;
     my $code    = shift;
@@ -126,13 +126,13 @@ sub walk {
         croak "$from not found in \$site->@{[$self->uri]}"
             unless exists $nodes->{$from};
 
-        $log->debug("walking nodes from $from");
-        _walk $nodes, $from, $code, {};
+        $log->debug("traverseing nodes from $from");
+        _traverse $nodes, $from, $code, {};
 
     } else {
-        $log->debug("walking all nodes");
+        $log->debug("traverseing all nodes");
         for my $node (keys %$nodes) {
-            $self->walk($from, $code);
+            $self->traverse($from, $code);
         }
     }
 

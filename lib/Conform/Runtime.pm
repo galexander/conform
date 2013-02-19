@@ -5,7 +5,6 @@ use Data::Dumper;
 use Data::Dump qw(dump);
 
 use Conform::Debug qw(Debug Trace);
-use Conform::Plugin;
 
 has iam => (
     is => 'rw',

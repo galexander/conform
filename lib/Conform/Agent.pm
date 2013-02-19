@@ -1,15 +1,17 @@
 package Conform::Agent;
-use strict;
-use Carp qw(croak);
 use Mouse;
-use Conform::Site;
-use Conform::Logger qw($log);
+use Carp qw(croak);
 use Data::Dump qw(dump);
-use Conform::Scheduler;
-use Conform::Debug qw(Trace Debug);
-use Conform::Action;
 use Storable qw(dclone);
 
+use Conform::Logger qw($log);
+use Conform::Debug qw(Trace Debug);
+use Conform::Runtime;
+use Conform::Site;
+use Conform::Scheduler;
+use Conform::ExecutionContext;
+use Conform::Task;
+use Conform::Action;
 
 =head1  NAME
 
@@ -44,6 +46,7 @@ A Conform::Runtime provides
 =back
 
 A Conform::Site is responsible for providing the defintion for 
+
 =over 4
 
 =item the runtime that this agent is responsible for
@@ -140,6 +143,15 @@ sub schedule {
     $self->scheduler->schedule($work);
 }
 
+sub scheduled {
+    my ($self, $work) = @_;
+    
+    Trace "%s", dump($work);
+
+    return $self->scheduler->scheduled($work);
+
+}
+
 sub merge_node_changes {
     my $self = shift;
     my ($new, $cur) = @_;
@@ -213,9 +225,15 @@ sub execute {
     local $Storable::Deparse = 1;
     my $copy = dclone $self->node;
 
-    $work->execute($self);
+    Conform::ExecutionContext->push(Conform::ExecutionContext->new(agent => $self, work => $work));
+
+    my @result = $work->execute($self);
 
     $self->merge_node_changes($self->node, $copy);
+
+    Conform::ExecutionContext->pop();
+
+    @result;
 
 }
 
@@ -233,7 +251,7 @@ sub identify_work {
                 dump($value),
                $tag;
 
-        my @actions  = $provider->actions($self, $tag,  $value);
+        my @actions  = $provider->factory($self, $tag,  $value);
 
         $self->schedule($tag, $_)
             for @actions;
@@ -253,9 +271,19 @@ sub identify_work {
                 dump($value),
                $tag;
 
-        my $task = $provider->task($self, $tag,  $value);
+        my $task = $provider->factory($self, $tag,  $value);
 
-        $self->schedule($tag, $task, { unique => 'name' });
+        # there can be only one
+
+        if (my $existing = $self->scheduled($task)) {
+
+            if (!$existing->locked()) {
+                $existing->merge_directives($task);
+            }
+
+        } else {
+            $self->schedule($tag, $task);
+        }
     
         return wantarray
             ? ($task)
@@ -274,7 +302,7 @@ sub extract_work {
 
     $log->debug("extract_work for $name");
     my @work = ();
-    for my $tag (grep !/ISA/, keys %$hash) {
+    for my $tag (grep !/ISA/, grep !/^:/, keys %$hash) {
         push @work, $self->identify_work($name, $tag => $hash->{$tag});
     }
     return wantarray 
@@ -288,7 +316,7 @@ sub extract_node_work {
 
     Trace;
 
-    $self->site->walk
+    $self->site->traverse
             ($node, sub { $self->extract_work(@_) });
 }
 
@@ -311,6 +339,9 @@ sub conform {
     while ($self->scheduler->has_work) {
         $self->scheduler->run();
     }
+
+    warn "scheduler has @{[ $self->scheduler->waiting ]} waiting jobs"
+            if $self->scheduler->waiting->size;
 
     Debug "Scheduler has %d pending jobs",   $self->scheduler->pending->size;
     Debug "Scheduler has %d waiting jobs",   $self->scheduler->waiting->size;

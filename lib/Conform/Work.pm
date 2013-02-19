@@ -1,8 +1,10 @@
 package Conform::Work;
-use Mouse::Role;
+use Mouse;
 use Data::Dump qw(dump);
 use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
+use Scalar::Util qw(blessed);
+use Carp qw(croak);
 
 =head1  NAME
 
@@ -10,14 +12,12 @@ Conform::Work
 
 =head1  SYNSOPSIS
 
-use Conform::Action;
-
-with 'Conform::Work';
+package Conform::Action;  extends 'Conform::Work';
+pakcage  Conform::Task;   extends 'Conform::Work';
 
 =head1 ABSTRACT
 
-Conform::Work - descrete unit of work to be run
-by a conform agent.
+Conform::Work - descrete unit of work to be run by a conform agent.
 
 =head1  DESCRIPTION
 
@@ -25,13 +25,53 @@ by a conform agent.
 
 =head1  METHODS
 
-=over
-
-=item B<exec>
-
 =cut
 
-requires 'run';
+sub BUILD {
+    my $self = shift;
+    blessed $self eq __PACKAGE__
+        and croak "@{[__PACKAGE__]} is abstract";
+
+    my $attr       = $self->attr;
+    my $directives = $self->directives;
+
+    Debug "attr = @{[dump($attr)]}";
+    Debug "directives = @{[dump($directives)]}";
+
+    $self->merge_directives(@$attr, @$directives);
+
+    Debug "dependencies = %s\n", $self->dependencies;
+
+    $self;
+}
+
+sub merge_directives {
+    my $self = shift;
+    my @directives = @_;
+    my $directive_map = $self->directive_map;
+    for my $directive (@directives) {
+        $log->tracef("Directive=%s", dump($directive));
+        my %hash = ref $directive eq 'HASH'
+                    ? %$directive
+                    : ($directive->[0] => $directive->[1]);
+
+        for my $keyword (keys %hash) {
+            my $arg    = $hash{$keyword};
+            my $method = $hash{$keyword} || $keyword;
+            if ($self->can($method) && defined $arg) {
+                $self->$method($arg);
+            }
+
+            if ($keyword eq 'depend') {
+                my $dependencies = $self->dependencies;
+                if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
+                    push @$dependencies,
+                            { '.name' => $1, '.id' => $2 };
+                }
+            }
+        }
+    }
+}
 
 =item B<id>
 
@@ -102,7 +142,69 @@ has 'impl' => (
     required => 1,
 );
 
+=item B<dependencies>
+
+    $dependencies = $action->dependencies;
+    $action->dependencies(\@dependencies);
+
+=cut
+
+has 'dependencies' => (
+    is => 'rw',
+    isa => 'ArrayRef',
+    default => sub { [] },
+);
+
+=item B<provider>
+
+=cut
+
+has 'provider' => (
+    'is' => 'rw',
+);
+
+=item B<directive_map>
+
+=cut
+
+has 'directive_map' => (
+    is  => 'rw',
+    isa => 'HashRef',
+    default => sub {
+        {
+            'Version'  => 'version',
+            'Id'       => 'id',
+            'Name'     => 'name',
+            'Action'   => 'name',
+            'Task'     => 'name',
+            'Prio'     => 'prio',
+            'Priority' => 'prio',
+        }
+    },
+);
+
+=item B<directives>
+
+=cut
+
+has 'directives' => (
+    is => 'rw',
+    isa => 'ArrayRef',
+    default => sub { [] },
+);
+
+
+=item B<attr>
+
+=cut
+
+sub attr {
+    my $self = shift;
+    $self->provider->attr;
+}
+
 =item B<constraint>
+
     
     my $constraint = $work->constraint();
 
@@ -112,6 +214,12 @@ has 'constraint' => (
     is => 'rw',
     isa => 'HashRef',
     default => sub { {} },
+);
+
+has 'locked' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
 );
 
 =item B<execute>
@@ -124,15 +232,12 @@ sub execute { Trace;
     my $self     = shift;
 
     Debug "Executing Work (id=%s,name=%s)",
-          $self->id,
-          $self->name;
-
-
-    $self->setExecutionContext();
+                $self->id,
+                $self->name;
 
     my @result   = $self->run(@_);
 
-    Debug "Action (id=%s,name=%s) returned %s",
+    Debug "Work (id=%s,name=%s) returned %s",
           $self->id,
           $self->name,
           dump(\@result);
@@ -146,29 +251,43 @@ sub execute { Trace;
             :\@result;
 }
 
-our $context;
+sub satisfies { Trace;
+    my $self       = shift;
+    my $dependency = shift;
 
-sub setExecutionContext {
-    my $package = shift;
-    my $context = shift;
-    if (blessed $package and !$context) {
-        $context = $package;
+    if (ref $dependency eq 'HASH') {
+
+        for my $check (keys %$dependency) {
+
+            if ($check =~ /^\.(\S+)/) {
+                my $param = $1;
+
+                if ($self->can($param)
+                    && defined $self->$param()
+                    && ($dependency->{$check} eq $self->$param())) {
+
+                    Debug "Work (id=%s,name=%s) satisfies dependency %s=%s",
+                          $self->id,
+                          $self->name,
+                          $check,
+                          dump($dependency->{$check});
+
+                    delete $dependency->{$check};
+                }
+            }
+        }
+
+        if (keys %$dependency) {
+            Debug "Unmet dependencies @{[ dump ($dependency) ]}";
+            return 0;
+        } else {
+            Debug "All dependencies met";
+            return 1;
+        }
     }
-                
-    Trace "set execution context(%s)",
-          dump($context);
+
+    return 0;
 }
-
-sub getExecutionContext {
-    my $package = shift;
-    Trace "get execution context(%s)",
-          dump($context);
-
-    return $context;
-
-}
-
-
 
 1;
 
