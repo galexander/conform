@@ -1,12 +1,26 @@
- - Actual functionality of Conform::Core::IO
-    - Split/Simplify Conform::Core::IO::*
- - Filter plugins by runtime
- - ActionProvider to spit out actions (instead of being built by the agent)
+ - Runtime plugin filtering
+    - plugins should be able to specify versions and types of
+      runtimes they support
+ - Runtime auto detection
+ - Logging vs Debug
+ - Configuration File Loading
+ - Task directives - where to wedge them in?
+    - Probably the best solution is to have the site
+      filter and process these.
+      E.g. :task => { Foo => { ":directive" => value, :arg = bar' }
+        would expand to 'Foo' => 'bar',
+      And :task => { Bar => { ":arg" => { } }
+        would expand to 'Bar' => { }
+      etc...
+ - Server Component
  - Dependency/Require checks w/actions
- - Requirements
- - Priority queue for actions
  - 3rd party plugins
- - Task Provider?
+ - 3rd party runtimes
+ - Documentation
+ - More Documentation
+ - Even More Documentaton
+ - Ditto for unit tests
+ 
 
 
 
