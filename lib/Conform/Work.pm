@@ -1,16 +1,21 @@
 package Conform::Work;
 use Mouse;
+
 use Data::Dump qw(dump);
-use Conform::Logger qw($log);
-use Conform::Debug qw(Trace Debug);
 use Scalar::Util qw(blessed);
 use Carp qw(croak);
+
+use Conform;
+use Conform::Logger qw($log);
+use Conform::Debug qw(Trace Debug);
 
 use constant MIN_PRIO     => 100;
 use constant LOW_PRIO     => 75;
 use constant MAX_PRIO     => 1;
 use constant HIGH_PRIO    => 25;
 use constant DEFAULT_PRIO => 50;
+
+our $VERSION = $Conform::VERSION;
 
 =encoding utf-8
 

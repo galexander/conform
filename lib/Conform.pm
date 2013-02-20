@@ -9,7 +9,7 @@ Conform
 
 =head1  VERSION
 
-    version is 0.01
+0.01
 
 =head1	SYNSOPSIS
 
