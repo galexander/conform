@@ -6,22 +6,73 @@ use Conform::Debug qw(Trace Debug);
 use Scalar::Util qw(blessed);
 use Carp qw(croak);
 
+use constant MIN_PRIO     => 100;
+use constant LOW_PRIO     => 75;
+use constant MAX_PRIO     => 1;
+use constant HIGH_PRIO    => 25;
+use constant DEFAULT_PRIO => 50;
+
+=encoding utf-8
+
 =head1  NAME
 
-Conform::Work
+Conform::Work - Descrete unit of work to be run by a conform agent.
+
 
 =head1  SYNSOPSIS
 
-package Conform::Action;  extends 'Conform::Work';
-pakcage  Conform::Task;   extends 'Conform::Work';
+    # Creating new work types
+    package Conform::Action;
+          extends 'Conform::Work';
 
-=head1 ABSTRACT
+    package Conform::Task; 
+          extends 'Conform::Work';
 
-Conform::Work - descrete unit of work to be run by a conform agent.
+    ...
+    ...
+
+    # Using new work types
+    my $job = Conform::Action->new(name => 'name',
+                                   impl => \&coderef);
+
+    $job->name('foo');
+    my $name = $job->name;
+
+    $job->id('bar');
+    my $id = $job->id;
+
+    $job->prio(10);
+    my $prio = $job->prio;
 
 =head1  DESCRIPTION
 
+Conform::Work is an abstract class to be extended.
+
+At its core Conform::Work is A job, or unit of work to be executed by a 
+conform agent as specified by a conform node definition.
+
+Conform::Work is a proxy for plugins, provided by L<Conform::Action>'s
+and L<Conform::Task>'s.
+
+Conform::Work provides attributes for
+
+=over
+
+=item 
+
+work identification with names and id's. 
+
+=item 
+
+hints for work scheduling through dependencies, and prioroties.
+
+=back
+
 =cut
+
+=head1  CONSTRUCTOR
+
+N/A
 
 =head1  METHODS
 
@@ -45,46 +96,7 @@ sub BUILD {
     $self;
 }
 
-sub merge_directives {
-    my $self = shift;
-    my @directives = @_;
-    my $directive_map = $self->directive_map;
-    for my $directive (@directives) {
-        $log->tracef("Directive=%s", dump($directive));
-        my %hash = ref $directive eq 'HASH'
-                    ? %$directive
-                    : ($directive->[0] => $directive->[1]);
-
-        for my $keyword (keys %hash) {
-            my $arg    = $hash{$keyword};
-            my $method = $hash{$keyword} || $keyword;
-            if ($self->can($method) && defined $arg) {
-                $self->$method($arg);
-            }
-
-            if ($keyword eq 'depend') {
-                my $dependencies = $self->dependencies;
-                if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
-                    push @$dependencies,
-                            { '.name' => $1, '.id' => $2 };
-                }
-            }
-        }
-    }
-}
-
-=item B<id>
-
-    $id = $work->id;
-    $work->id($id);
-
-=cut
-
-has 'id' => (
-    is => 'rw',
-);
-
-=item B<name>
+=head2 B<name>
 
     $name = $work->name;
     $work->name($name);
@@ -95,7 +107,20 @@ has 'name' => (
     is => 'rw',
 );
 
-=item B<prio>
+
+=head2 B<id>
+
+    $id = $work->id;
+    $work->id($id);
+
+=cut
+
+has 'id' => (
+    is => 'rw',
+);
+
+
+=head2 B<prio>
 
     $work->prio;
 
@@ -107,7 +132,7 @@ has 'prio' => (
     default => '50',
 );
 
-=item B<complete>
+=head2 B<complete>
 
     $complete = $work->complete;
 
@@ -118,9 +143,7 @@ has 'complete' => (
     isa => 'Bool',
 );
 
-1;
-
-=item B<result>
+=head2 B<result>
     
     $result = $work->result;
 
@@ -130,7 +153,7 @@ has 'result' => (
     'is' => 'rw',
 );
 
-=item B<impl>
+=head2 B<impl>
     
     $work->impl->();
 
@@ -142,7 +165,7 @@ has 'impl' => (
     required => 1,
 );
 
-=item B<dependencies>
+=head2 B<dependencies>
 
     $dependencies = $action->dependencies;
     $action->dependencies(\@dependencies);
@@ -155,7 +178,7 @@ has 'dependencies' => (
     default => sub { [] },
 );
 
-=item B<provider>
+=head2 B<provider>
 
 =cut
 
@@ -163,7 +186,7 @@ has 'provider' => (
     'is' => 'rw',
 );
 
-=item B<directive_map>
+=head2 B<directive_map>
 
 =cut
 
@@ -183,7 +206,7 @@ has 'directive_map' => (
     },
 );
 
-=item B<directives>
+=head2 B<directives>
 
 =cut
 
@@ -194,7 +217,7 @@ has 'directives' => (
 );
 
 
-=item B<attr>
+=head2 B<attr>
 
 =cut
 
@@ -203,14 +226,13 @@ sub attr {
     $self->provider->attr;
 }
 
-=item B<constraint>
+=head2 B<constraints>
 
-    
-    my $constraint = $work->constraint();
+    my $constraints = $work->constraints();
 
 =cut
 
-has 'constraint' => (
+has 'constraints' => (
     is => 'rw',
     isa => 'HashRef',
     default => sub { {} },
@@ -222,13 +244,13 @@ has 'locked' => (
     default => 0,
 );
 
-=item B<execute>
+=head2 B<execute>
 
     $work->execute();
 
 =cut
 
-sub execute { Trace;
+sub execute {
     my $self     = shift;
 
     Debug "Executing Work (id=%s,name=%s)",
@@ -250,6 +272,12 @@ sub execute { Trace;
             ? @result
             :\@result;
 }
+
+=head2 B<satisfies>
+    
+    $work->satisfies($dependency);
+
+=cut
 
 sub satisfies { Trace;
     my $self       = shift;
@@ -289,6 +317,39 @@ sub satisfies { Trace;
     return 0;
 }
 
+=head2  merge_directives
+
+=cut
+
+sub merge_directives {
+    my $self = shift;
+    my @directives = @_;
+    my $directive_map = $self->directive_map;
+    for my $directive (@directives) {
+        my %hash = ref $directive eq 'HASH'
+                    ? %$directive
+                    : ($directive->[0] => $directive->[1]);
+
+        for my $keyword (keys %hash) {
+            my $arg    = $hash{$keyword};
+            my $method = $hash{$keyword} || $keyword;
+            if ($self->can($method) && defined $arg) {
+                $self->$method($arg);
+            }
+
+            if ($keyword eq 'depend') {
+                my $dependencies = $self->dependencies;
+                if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
+                    push @$dependencies,
+                            { '.name' => $1, '.id' => $2 };
+                }
+            }
+        }
+    }
+}
+
+
+
 1;
 
 =back
@@ -296,6 +357,25 @@ sub satisfies { Trace;
 =head1  SEE ALSO
 
 L<conform> L<Conform::Action> L<Conform::Task>
+
+=head1  TODO
+
+=over
+
+=item
+
+Maybe make this a 'Mouse;:Role' and create  'Conform::Job' abstract
+class and move the stateful functionality to it.
+
+=item
+
+Make private things private
+
+=item
+
+enforce 'locked' - maybe at a 'commit' function to enforce 'frozen' state.
+
+=back
 
 =head1  AUTHOR
 
