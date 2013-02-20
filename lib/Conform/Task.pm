@@ -25,8 +25,8 @@ Conform::Task - descrete unit of work to be run by a conform agent.
 
 sub BUILD {
     my $self = shift;
-    my $constraint = $self->constraint;
-    $constraint->{unique} = 'name';
+    my $constraints = $self->constraints;
+    $constraints->{unique} = 'name';
     $self;
 }
 

@@ -55,7 +55,7 @@ sub import {
     *{"${caller}\::getName"}    = sub { _getName    ($identifier) };
     *{"${caller}\::getVersion"} = sub { _getVersion ($identifier) };
 
-    # $_[0]->SUPER::import(@_);
+    $_[0]->SUPER::import(@_);
 }
 
 

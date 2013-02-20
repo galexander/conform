@@ -3,7 +3,8 @@ use strict;
 use Mouse;
 use Safe;
 use Carp qw(croak);
-use Data::Dumper;
+use Conform::Debug qw(Debug Trace);
+use Data::Dump qw(dump);
 
 use Conform::Logger qw($log);
 
@@ -64,7 +65,7 @@ sub BUILD {
 
 sub init {
     my $self = shift;
-    $log->debugf("%s->init", ref $self);
+    Debug "%s->init", ref $self;
 
     my $path = $self->uri;
 
@@ -82,7 +83,6 @@ sub init {
 sub _traverse;
 sub _traverse {
     my ($nodes, $key, $code, $seen) = @_;
-    $log->trace("_traverse $key");
 
     $seen ||= {};
 
@@ -93,7 +93,7 @@ sub _traverse {
 
     my $node = $nodes->{$key};
     if(!defined $node) {
-        $log->debug("key ($key) not found");
+        Debug "key ($key) not found";
         return;
     }
 
@@ -126,11 +126,11 @@ sub traverse {
         croak "$from not found in \$site->@{[$self->uri]}"
             unless exists $nodes->{$from};
 
-        $log->debug("traverseing nodes from $from");
+        Debug "Traversing nodes from $from";
         _traverse $nodes, $from, $code, {};
 
     } else {
-        $log->debug("traverseing all nodes");
+        Debug "Traversing ALL nodes";
         for my $node (keys %$nodes) {
             $self->traverse($from, $code);
         }
@@ -148,15 +148,13 @@ sub _merge_nodes {
     my $from = shift;
     my $to   = shift;
 
-    $log->debugf("Merging nodes %d -> %d",
-                    scalar keys %$from,
-                    scalar keys %$to)
-                        if $log->is_debug;
+    Debug "Merging nodes %d -> %d",
+          scalar keys %$from,
+          scalar keys %$to;
 
     @{$to}{keys %$from} = values %$from;
 
-    $log->debug("Merged = @{[Dumper([keys %$from])]}")
-        if $log->is_debug;
+    Debug "Merged = @{[dump([keys %$from])]}";
 }
 
 sub _load_nodes {
@@ -201,17 +199,15 @@ sub _load_nodes_perl {
         no strict 'refs';
         my $ns = $safe->root;
         my $nodes = \%{"${ns}\::nodes"};
-        $log->debug("Nodes are @{[ Dumper $nodes ]}")
-            if $log->is_debug;
+        Debug "Nodes are @{[ dump $nodes ]}";
 
         unless (ref $nodes and ref $nodes eq 'HASH') {
-            $log->debug("No %nodes expicitly set in $path - checking return value");
+            Debug "No %nodes expicitly set in $path - checking return value";
             if (ref $return
                     and ref $return  eq 'HASH'
                     and exists $return->{nodes}) {
 
-                $log->debug("@{[ Dumper $return->{nodes} ]}")
-                       if $log->is_debug;
+                Debug "@{[ dump $return->{nodes} ]}";
 
                 return $return->{nodes};
             }

@@ -111,12 +111,12 @@ sub schedule { Trace "schedule(@{[Dumper($_[1])]})";
     my $self   = shift;
     my $work   = shift;
     
-    my $constraint = $work->constraint;
+    my $constraints = $work->constraints;
 
     my $schedule = 1;
 
-    if (keys %$constraint) {
-        if (my $check = $constraint->{unique}) {
+    if (keys %$constraints) {
+        if (my $check = $constraints->{unique}) {
             my $existing = $self->pending->find(
                 single => sub {
                     my $job = shift;
