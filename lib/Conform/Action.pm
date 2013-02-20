@@ -1,22 +1,21 @@
 package Conform::Action;
 use Mouse;
 use Data::Dump qw(dump);
+use Conform;
 use Conform::Logger qw($log);
 use Conform::Debug qw(Trace Debug);
+
+our $VERSION = $Conform::VERSION;
 
 extends 'Conform::Work';
 
 =head1  NAME
 
-Conform::Action
+Conform::Action - descrete unit of work to be run by a conform agent.
 
 =head1  SYNSOPSIS
 
 use Conform::Action;
-
-=head1 ABSTRACT
-
-Conform::Action - descrete unit of work to be run by a conform agent.
 
 =head1  DESCRIPTION
 
@@ -32,8 +31,10 @@ Conform::Action - descrete unit of work to be run by a conform agent.
 
 =cut
 
-sub run { Trace;
+sub run {
     my $self     = shift;
+
+    Trace;
 
     Debug "Executing Action (id=%s,name=%s,args=%s)",
           $self->id,

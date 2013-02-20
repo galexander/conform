@@ -17,7 +17,7 @@ sub action_providers {
     my $providers = $self->providers;
     return wantarray
             ? @{$providers->{Action} ||=[]}
-            : ($providers->{Action}  ||=[]);
+            :  ($providers->{Action} ||=[]);
 
 }
 
@@ -26,7 +26,7 @@ sub task_providers {
     my $providers = $self->providers;
     return wantarray
             ? @{$providers->{Task} ||=[]}
-            : ($providers->{Task}  ||=[]);
+            :  ($providers->{Task}  ||=[]);
 
 }
 
