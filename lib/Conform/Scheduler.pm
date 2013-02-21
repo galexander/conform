@@ -26,7 +26,6 @@ Generic 'Conform::Work' scheduler/executor with dependency resolution
 
 use Mouse;
 use Conform::Queue;
-use Data::Dumper;
 use Data::Dump qw(dump);
 use Conform::Debug qw(Debug Trace);
 use Scalar::Util qw(refaddr);
@@ -107,7 +106,7 @@ Executes any 'waiting' work prior to being scheduled.
 =cut
 
 
-sub schedule { Trace "schedule(@{[Dumper($_[1])]})";
+sub schedule { Trace "schedule(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
     
@@ -153,7 +152,7 @@ will be run.
 
 =cut
 
-sub wait { Trace "wait(@{[ Dumper ($_[1]) ]}";
+sub wait { Trace "wait(@{[ dump($_[1]) ]}";
     my $self   = shift;
     my $work   = shift;
     $self->waiting->enqueue($work);
@@ -169,7 +168,7 @@ Find all work 'waiting'
 
 =cut
 
-sub find_waiting { Trace "find_waiting(@{[Dumper($_[1])]})";
+sub find_waiting { Trace "find_waiting(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
 
@@ -210,7 +209,7 @@ a dependency.
 
 =cut
 
-sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
+sub find_dependency { Trace "find_dependency(@{[dump($_[1])]})";
     my $self       = shift;
     my $dependency = shift;
 
@@ -250,7 +249,7 @@ sub find_dependency { Trace "find_dependency(@{[Dumper($_[1])]})";
     return $found;
 }
 
-sub complete { Trace "complete(@{[Dumper($_[1])]})";
+sub complete { Trace "complete(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
 
