@@ -200,7 +200,6 @@ has 'directive_map' => (
     isa => 'HashRef',
     default => sub {
         {
-            'Version'  => 'version',
             'Id'       => 'id',
             'Name'     => 'name',
             'Action'   => 'name',
