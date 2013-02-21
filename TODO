@@ -4,14 +4,19 @@
  - Runtime auto detection
  - Logging vs Debug
  - Configuration File Loading
+ - Safe mode
  - Task directives - where to wedge them in?
     - Probably the best solution is to have the site
       filter and process these.
-      E.g. :task => { Foo => { ":directive" => value, :arg = bar' }
+      E.g. :Task => { Foo => { ":directive" => value, :arg = bar' }
         would expand to 'Foo' => 'bar',
-      And :task => { Bar => { ":arg" => { } }
+      And :Task => { Bar => { ":arg" => { } }
         would expand to 'Bar' => { }
       etc...
+ - Conditional work queue
+    - :if directive
+ - Ensure directive in Tasks and Actions to preempt the scheduler
+ - Unschedule directive int Tasks and Actions to remove tasks from the work queue
  - Server Component
  - Dependency/Require checks w/actions
  - 3rd party plugins
@@ -20,6 +25,9 @@
  - More Documentation
  - Even More Documentaton
  - Ditto for unit tests
+
+---
+
  
 
 
