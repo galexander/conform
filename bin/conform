@@ -4,6 +4,9 @@ use strict;
 use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use Carp qw(croak);
+use FindBin;
+use File::Basename qw(basename);
+use Data::Dump qw(dump);
 
 use Conform;
 use Conform::Agent;
@@ -22,8 +25,8 @@ my @trace;
 
 my $iam;
 my $uri;
-my $conf_file;
-my $runtime;
+my $conf_file = "$FindBin::Bin/../etc/conform.ini";
+my $runtime_name;
 my @list;
 
 
@@ -35,7 +38,7 @@ sub usage {
 GetOptions(
     'iam=s'         => \$iam,
 	'uri=s'         => \$uri,
-	'runtime'       => \$runtime,
+	'runtime'       => \$runtime_name,
     'conf-file=s'   => \$conf_file,
     'trace'         => \$Conform::Debug::TRACE,
     'debug'         => \$Conform::Debug::DEBUG,
@@ -43,8 +46,34 @@ GetOptions(
 	'h|?'           => \&usage
 ) or usage(msg => 'Invalid parametes');
 
+my $cfg = Conform::Config->load_files({files => [$conf_file], use_ext => 1});
 
-my $runtime = Conform::Runtime::Server::Posix->new(iam => 'test');
+for (@$cfg) {
+    my ($filename, $config) = %$_;
+    my $me = basename $0;
+    my $conform_conf = $config->{$me};
+    if ($conform_conf and ref $conform_conf eq 'HASH') {
+        for (keys %$conform_conf) {
+            /iam/     and do { $iam          ||= $conform_conf->{$_} };
+            /runtime/ and do { $runtime_name ||= $conform_conf->{$_} };
+            /uri/     and do { $uri          ||= $conform_conf->{$_} };
+            /trace/   and do { $Conform::Debug::TRACE = $conform_conf->{$_} };
+            /debug/   and do { $Conform::Debug::DEBUG = $conform_conf->{$_} };
+        }
+    }
+    Conform::Config->set($config);
+}
+
+eval "use ${runtime_name};";
+if (my $err = $@) {
+    print "Error loading ${runtime_name}: $err $!\n";
+    exit;
+}
+
+usage (msg => 'missing runtime, or uri')
+    unless $runtime_name && $uri;
+
+my $runtime = $runtime_name->new(iam => $iam); 
 if (@list) {
 
     $runtime->boot;

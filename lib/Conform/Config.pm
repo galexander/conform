@@ -15,6 +15,13 @@ use Conform::Config;
 
 extends 'Config::Any';
 
+my $root = undef;
+
+sub set {
+    my $self = shift;
+    $root = shift;
+}
+
 =head1  SEE ALSO
 
 L<Config::Any>
