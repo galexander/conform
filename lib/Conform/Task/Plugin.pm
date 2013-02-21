@@ -21,8 +21,6 @@ sub factory {
 
     Trace;
 
-    my $name = $self->name;
-
     my $work_impl = sub {
         return $self->impl->(@_);
     };

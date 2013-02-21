@@ -39,7 +39,7 @@ sub _get_positional_args {
                 if defined $arg and
                        ref $arg ne $check->{type};
 
-            $arg = $check->{type} eq 'HASH'
+            $arg ||= $check->{type} eq 'HASH'
                         ? {}
                         : [];
         }
@@ -61,8 +61,9 @@ sub _get_named_args {
     my %formatted = ();
     for my $check (@$spec) {
         my $arg = $args->{$check->{arg}};
+        Debug "Arg = @{[dump $arg]}";
         if ($check->{required}) {
-            die "$name:missing  require $check->{arg}"
+            die "$name:missing required arg '$check->{arg}'"
                 unless defined $arg;
         }
         if ($check->{type}) {
@@ -70,7 +71,7 @@ sub _get_named_args {
                 if defined $arg && 
                        ref $arg ne $check->{type};
 
-            $arg = $check->{type} eq 'HASH'
+            $arg ||= $check->{type} eq 'HASH'
                         ? {}
                         : [];
         }
@@ -78,6 +79,7 @@ sub _get_named_args {
             unless exists $formatted{_id};
         $formatted{$check->{arg}} = $arg;
     }
+    Debug "formatted = @{[ dump \%formatted ]}";
     return \%formatted;
 
 }

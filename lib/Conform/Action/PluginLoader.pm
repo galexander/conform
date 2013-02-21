@@ -134,7 +134,7 @@ sub get_plugins {
 
     Trace;
 
-    my $finder = $self->plugin_finder;
+    my $finder = $self->plugin_finder (@_);
     
     Debug "%s", dump($finder);
 

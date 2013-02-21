@@ -40,7 +40,7 @@ sub get_plugins {
 
     Trace;
 
-    my $finder = $self->plugin_finder;
+    my $finder = $self->plugin_finder(@_);
     
     Debug "%s", dump($finder);
 
@@ -48,6 +48,7 @@ sub get_plugins {
         Debug "Found potential plugin provider %s", $_;
         $self->plugin($_);
     }
+
 
     $self->plugins;
 }

@@ -172,11 +172,12 @@ sub _discover_providers {
     my $loader = "Conform::${type}::PluginLoader";
     eval "use $loader;";
     die "$@" if $@;
+
     $loader = $loader->new(plugin_type => $type);
 
     Debug "%s", dump ($loader);
 
-    my $plugins = $loader->get_plugins();
+    my $plugins = $loader->get_plugins(search_path => $self->ancestors);
 
     Debug "Plugins %s", dump($plugins);
 

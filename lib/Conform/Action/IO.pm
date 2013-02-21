@@ -14,7 +14,7 @@ sub check_queue_cmd {
     my $cmd = shift;
     my $attr = shift;
     if (defined $cmd and $cmd =~ /^Q:(.*)/) {
-        Action 'Queue_command' => { '-cmd' => $1, -attr => $attr };
+        Action 'Queue_command' => { 'cmd' => $1, attr => $attr };
         return undef;
     }
     return $cmd;
@@ -122,13 +122,13 @@ EOUSAGE
 
 sub File_modify
     : Action
-    : Args(+file, +@expr, cmd, %attr) {
+    : Args(+file, cmd, +@expr, %attr) {
     Debug "File_modify(%s)", dump($_[0]);
 
     my $args = shift;
 
     my ($file, $cmd, $expr, $attr)
-            = @{$args}{qw(file expr cmd attr)};
+            = @{$args}{qw(file cmd expr attr)};
 
     $file or croak <<EOUSAGE;
 Usage: File_modify { 
@@ -139,7 +139,7 @@ Usage: File_modify {
 
 EOUSAGE
 
-    file_modify $file, check_queue_cmd($cmd), $expr, $attr;
+    file_modify $file, check_queue_cmd($cmd), @$expr;
 }
 
 sub File_unlink
