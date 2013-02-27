@@ -34,18 +34,28 @@ our @EXPORT_OK = (qw(
     debugf
     info
     infof
+    inform
+    informf
     note
     notef
     notice
     noticef
     warning
     warningf
+    warn
+    warnf
     error
     errorf
+    err
+    errf
     critical
     criticalf
+    crit
+    critf
     alert
     alertf
+    fatal
+    fatalf
     emergency
     emergencyf
     $log
@@ -70,8 +80,11 @@ sub debugf      { _get_logger->debugf(@_); }
 sub info        { _get_logger->info(@_); }
 sub infof       { _get_logger->infof(@_); }
 
-sub note        { _get_logger->note(@_); }
-sub notef       { _get_logger->notef(@_); }
+sub inform      { _get_logger->inform(@_); }
+sub informf     { _get_logger->informf(@_); }
+
+sub note        { _get_logger->notice(@_); }
+sub notef       { _get_logger->noticef(@_); }
 
 sub notice      { _get_logger->notice(@_); }
 sub noticef     { _get_logger->noticef(@_); }
@@ -79,14 +92,26 @@ sub noticef     { _get_logger->noticef(@_); }
 sub warning     { _get_logger->warning(@_); }
 sub warningf    { _get_logger->warningf(@_); }
 
+sub warn        { _get_logger->warn(@_); }
+sub warnf       { _get_logger->warnf(@_); }
+
 sub error       { _get_logger->error(@_); }
 sub errorf      { _get_logger->errorf(@_); }
+
+sub err         { _get_logger->err(@_); }
+sub errf        { _get_logger->errf(@_); }
 
 sub critical    { _get_logger->critical(@_); }
 sub criticalf   { _get_logger->criticalf(@_); }
 
+sub crit        { _get_logger->crit(@_); }
+sub critf       { _get_logger->critf(@_); }
+
 sub alert       { _get_logger->alert(@_); }
 sub alertf      { _get_logger->alertf(@_); }
+
+sub fatal       { _get_logger->fatal(@_); }
+sub fatalf      { _get_logger->fatalf(@_); }
 
 sub emergency   { _get_logger->emergency(@_); }
 sub emergencyf  { _get_logger->emergencyf(@_); }
