@@ -1,6 +1,6 @@
 package Conform::Test::Logger;
 use strict;
-use Test::More tests => 17;
+use Test::More tests => 19;
 use Test::Trap;
 use FindBin;
 use File::Temp qw(tempfile);
@@ -8,25 +8,39 @@ use lib "$FindBin::Bin/../lib";
 use Test::Files;
 
 our $log;
-my @log_any_methods = qw(trace tracef
-                     debug debugf
-                     info infof inform informf
-                     notice noticef
-                     warning warningf warn warnf
-                     error errorf err errf
-                     critical criticalf crit critf
-                     fatal fatalf
-                     alert alertf
-                     emergency emergencyf);
 
-my @logger_methods    = @log_any_methods, qw(note);
+my @log_any_methods = (qw(
+    trace tracef 
+    debug debugf 
+    info infof
+    notice noticef
+    warning warningf
+    warn warnf
+    error errorf 
+    fatal fatalf
+));
 
-use_ok 'Conform::Logger', qw($log), @logger_methods;
+my @logger_methods  = @log_any_methods, qw(note);
+
+my @check_log_methods = (qw(
+    is_trace
+    is_debug
+    is_info
+    is_warn
+    is_error
+    is_fatal));
+    
+use_ok 'Conform::Logger', qw($log),
+                          @logger_methods,
+                          @check_log_methods;
+
 is $Conform::Logger::VERSION, $Conform::VERSION, "version is OK";
 
 can_ok 'Conform::Logger', 'set';
+can_ok 'Conform::Logger', 'get_logger';
 can_ok __PACKAGE__, @log_any_methods;
 can_ok __PACKAGE__, @logger_methods;
+can_ok __PACKAGE__, @check_log_methods;
 
 ok $log, 'Log is defined';
 
@@ -119,12 +133,16 @@ use Conform::Logger qw(fatal);
 
 trap {
     $log->debug("debug");
-    errorf("foo");
+    if (is_error()) {
+        errorf("foo");
+    }
+    if (is_trace()) {
+        trace("bar");
+    }
     fatal "fatal";
 };
 
 is($trap->stderr, "DEBUG - debug\nERROR - foo\nFATAL - fatal\n", "log4perl screen appender OK");
-# [3] lib/Test.pm 11 info message
 file_ok($logfile, "DEBUG - debug\nERROR - foo\nFATAL - fatal\n", "log4perl file appender OK");
 
 }
