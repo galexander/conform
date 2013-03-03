@@ -129,7 +129,7 @@ EOCONF
 
 Log::Log4perl::init(\$log_conf);
 
-use Conform::Logger qw(fatal);
+use Conform::Logger qw(fatal is_error);
 
 trap {
     $log->debug("debug");
@@ -146,7 +146,6 @@ is($trap->stderr, "DEBUG - debug\nERROR - foo\nFATAL - fatal\n", "log4perl scree
 file_ok($logfile, "DEBUG - debug\nERROR - foo\nFATAL - fatal\n", "log4perl file appender OK");
 
 }
-
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:

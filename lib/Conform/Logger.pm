@@ -100,6 +100,7 @@ Conform::Logger is the logging framework for conform.
 =cut
 
 use Log::Any::Adapter;
+use Conform::Log;
 
 extends 'Log::Any';
 
@@ -119,6 +120,50 @@ our @LOG_EXPORT_OK = (qw(
     fatal fatalf is_fatal
 ));
 
+my %check_map = (
+    'trace'    => 'is_trace',
+    'tracef'   => 'is_trace',
+    'debug'    => 'is_debug',
+    'debugf'   => 'is_debug',
+    'info'     => 'is_info',
+    'infof'    => 'is_info',
+    'note'     => 'is_notice',
+    'notef'    => 'is_notice',
+    'notice'   => 'is_notice',
+    'noticef'  => 'is_notice',
+    'warning'  => 'is_warn',
+    'warningf' => 'is_warn',
+    'warn'     => 'is_warn',
+    'warnf'    => 'is_warn',
+    'error'    => 'is_error',
+    'errorf'   => 'is_error',
+    'fatal'    => 'is_fatal',
+    'fatalf'   => 'is_fatal',
+);
+
+for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
+    no strict 'refs';
+    *$method = sub {
+        my $self = shift;
+        my $delegate = $self->delegate;
+        my $check = $check_map{$method};
+        if ($check && $delegate->can($check) && $delegate->$check) {
+            $delegate->$method(@_);
+            $self->get_log->append(@_);
+        }
+    };
+}
+
+for my $method (grep /^is_/, @LOG_EXPORT_OK) {
+    no strict 'refs';
+    *$method = sub {
+        my $self = shift;
+        my $delegate = $self->delegate;
+        print "Method = $method\n";
+       $delegate->$method(@_);
+    };
+}
+
 sub import {
     my $package  = shift;
     my $caller   = caller;
@@ -126,10 +171,10 @@ sub import {
     my $log      = grep /^\$/,  @_;
     my @methods  = grep !/^\$/, @_;
 
-    METHOD:
-    for my $method (@methods) {
+    LOG_METHOD:
+    for my $method (grep !/^is_/, @methods) {
 
-        next METHOD unless grep /^\Q$method\E$/, @LOG_EXPORT_OK;
+        next LOG_METHOD unless grep /^\Q$method\E$/, @LOG_EXPORT_OK;
 
         no strict 'refs';
         unless (defined &{"${caller}\::${method}"}) {
@@ -144,18 +189,43 @@ sub import {
                     local $Log::Log4perl::caller_depth
                             = $Log::Log4perl::caller_depth + 1;
 
-                    __PACKAGE__->get_logger(category => caller)
-                               ->$method(@_); 
+                    my $logger = __PACKAGE__->get_logger(category => caller);
+                    my $delegate = $logger->delegate;
+                    my $check    = $check_map{$method};
+
+                    if ($check && $delegate->can($check) && $delegate->$check) {
+                        $delegate->$method(@_);
+                        $logger->get_log->append(@_);
+                    }
 
                 } else {
+                    my $logger = __PACKAGE__->get_logger(category => caller);
+                    my $delegate = $logger->delegate;
+                    my $check    = $check_map{$method};
 
-                    __PACKAGE__->get_logger(category => caller)
-                               ->$method(@_);
-
+                    if ($check && $delegate->can($check) && $delegate->$check) {
+                        $delegate->$method(@_);
+                        $logger->get_log->append(@_);
+                    }
                 }
             };
         }
     }
+    CHECK_METHOD:
+    for my $method (grep /^is_/, @methods) {
+
+        next CHECK_METHOD unless grep /^\Q$method\E$/, @LOG_EXPORT_OK;
+
+        no strict 'refs';
+        unless (defined &{"${caller}\::${method}"}) {
+            *{"${caller}\::${method}"} = sub {
+                my $logger = __PACKAGE__->get_logger(category => caller);
+                my $delegate = $logger->delegate;
+                return $delegate->$method;
+            };
+        }
+    }
+
 
     if ($log) {
         my $log = $package->get_logger(category => $caller);
@@ -218,6 +288,33 @@ $logger
 =back
 
 =cut
+
+my $_log = Conform::Log->new();
+
+sub new { 
+    my $package = shift;
+    my $self = bless {} => __PACKAGE__;
+    my %args = @_;
+    for my $arg (keys %args) {
+        $self->$arg($args{$arg})
+            if $self->can($arg);
+    }
+    $self;
+}
+
+sub get_log {
+    return $_log;
+}
+
+has 'delegate' => (
+    is => 'rw',
+);
+
+sub get_logger {
+    my $package  = shift;
+    my $delegate = $package->SUPER::get_logger(@_);
+    $package->new(delegate => $delegate);
+}
 
 =head1  METHODS
 
