@@ -3,6 +3,7 @@
       runtimes they support
  - Runtime auto detection
  - Logging vs Debug
+ - Logger - check that log4perl delegate has the correct caller_depth
  - Configuration File Loading
  - Safe mode
  - Task directives - where to wedge them in?
