@@ -141,12 +141,18 @@ my %check_map = (
     'fatalf'   => 'is_fatal',
 );
 
+# create log methods
 for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
     no strict 'refs';
     *$method = sub {
         my $self = shift;
         my $adapter = $self->adapter;
         my $check = $check_map{$method};
+
+        local $Log::Log4perl::caller_depth
+                        = $Log::Log4perl::caller_depth + 1
+                            if $Log4perl;
+
         if ($check && $adapter->can($check) && $adapter->$check) {
             $adapter->$method(@_);
             $self->get_log->append(@_);
@@ -154,6 +160,7 @@ for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
     };
 }
 
+# create check methods
 for my $method (grep /^is_/, @LOG_EXPORT_OK) {
     no strict 'refs';
     *$method = sub {
@@ -163,6 +170,30 @@ for my $method (grep /^is_/, @LOG_EXPORT_OK) {
     };
 }
 
+sub _chomp {
+    my @lines = @_;
+    chomp $lines[$#lines];
+    @lines;
+}
+
+$SIG{__WARN__} = sub {
+    my $logger = __PACKAGE__->get_logger(category => caller);
+    local $Log::Log4perl::caller_depth
+                        = $Log::Log4perl::caller_depth + 1
+                            if $Log4perl;
+    $logger->warn(_chomp(@_));
+};
+
+# catch and log die
+$SIG{__DIE__} = sub {
+    die @_ if $^S;
+    my $logger = __PACKAGE__->get_logger(category => caller);
+    local $Log::Log4perl::caller_depth
+                        = $Log::Log4perl::caller_depth + 1
+                            if $Log4perl;
+    $logger->fatal(_chomp(@_));
+};
+
 sub import {
     my $package  = shift;
     my $caller   = caller;
@@ -170,42 +201,34 @@ sub import {
     my $log      = grep /^\$/,  @_;
     my @methods  = grep !/^\$/, @_;
 
+    push @methods, qw(warn)
+        unless grep /^:nativewarn$/, @methods;
+
     LOG_METHOD:
-    for my $method (grep !/^is_/, @methods) {
+    for my $method (grep !/^is_/, grep !/^:/, @methods) {
 
         next LOG_METHOD unless grep /^\Q$method\E$/, @LOG_EXPORT_OK;
 
         no strict 'refs';
         unless (defined &{"${caller}\::${method}"}) {
             *{"${caller}\::${method}"} = sub {
-                if ($Log4perl) {
 
-                    # If we use log4perl then the
-                    # caller depth has to be incremented
-                    # so that line numbers, caller, method
-                    # etc are reported correctly
+                # If we use log4perl then the
+                # caller depth has to be incremented
+                # so that line numbers, caller, method
+                # etc are reported correctly
 
-                    local $Log::Log4perl::caller_depth
-                            = $Log::Log4perl::caller_depth + 1;
+                local $Log::Log4perl::caller_depth
+                        = $Log::Log4perl::caller_depth + 1
+                            if $Log4perl;
 
-                    my $logger = __PACKAGE__->get_logger(category => caller);
-                    my $adapter = $logger->adapter;
-                    my $check    = $check_map{$method};
+                my $logger = __PACKAGE__->get_logger(category => caller);
+                my $adapter = $logger->adapter;
+                my $check    = $check_map{$method};
 
-                    if ($check && $adapter->can($check) && $adapter->$check) {
-                        $adapter->$method(@_);
-                        $logger->get_log->append(@_);
-                    }
-
-                } else {
-                    my $logger = __PACKAGE__->get_logger(category => caller);
-                    my $adapter = $logger->adapter;
-                    my $check    = $check_map{$method};
-
-                    if ($check && $adapter->can($check) && $adapter->$check) {
-                        $adapter->$method(@_);
-                        $logger->get_log->append(@_);
-                    }
+                if ($check && $adapter->can($check) && $adapter->$check) {
+                    $adapter->$method(@_);
+                    $logger->get_log->append(@_);
                 }
             };
         }
