@@ -14,7 +14,7 @@ Conform::Core::IO::HTTP - Conform common http io functions
     $content = slurp_http $uri, \%flags;
     @lines   = slurp_http $uri, \%flags;
 
-    $updated  = http_install $filename, $uri,    $cmd, \%flags, @expr;
+    $updated  = file_install_http $filename, $uri,    $cmd, \%flags, @expr;
 
     $filenames = dir_list_http $uri, \%flags;
     @filenames = dir_list_http $uri, \%flags;
@@ -66,14 +66,14 @@ use Conform::Core::IO::File qw(safe_write safe_write_file dir_check);
 use base qw( Exporter );
 use vars qw(
   $VERSION %EXPORT_TAGS @EXPORT_OK
-  $safe_mode $safe_write_msg $log_messages 
+  $safe_mode $safe_write_msg 
 );
 $VERSION     = (qw$Revision: 1.127 $)[1];
 %EXPORT_TAGS = (
     all => [
         qw(
           slurp_http
-          http_install
+          file_install_http
           dir_install_http
           dir_list_http
           )
@@ -88,22 +88,6 @@ Exporter::export_ok_tags( keys %EXPORT_TAGS );
 
 use constant HTTP_CACHE => '/var/cache/conform';
 use constant HTTP_TIMEOUT => 10;
-
-# The first constant is from http://www.netadmintools.com/html/2ioctl_list.man.html
-# Hard coding these removes the need to depend on h2ph
-
-use constant EXT2_IOC_GETFLAGS => ( (+(uname())[4] eq 'x86_64') ? 0x80086601 : 0x80046601);
-use constant EXT2_IOC_SETFLAGS => ( (+(uname())[4] eq 'x86_64') ? 0x40086602 : 0x40046602);
-use constant EXT2_IMMUTABLE_FL => 16;
-use constant EXT2_APPEND_FL    => 32;
-
-# color values
-
-my $RESET  = "\e[0m";
-my $BOLD   = "\e[1m";
-my $RED    = "\e[31m";
-my $YELLOW = "\e[33m";
-my $CYAN   = "\e[36m";
 
 # commands we use
 
@@ -327,17 +311,17 @@ sub slurp_http {
     return slurp_file $cache_file;
 }
 
-sub http_install {
+sub file_install_http {
     my ( $filename, $uri, $cmd, $flags, @expr ) = @_;
     $flags ||= {};
 
     defined $filename and defined $uri and ref $flags eq 'HASH'
       or croak
-'Usage: Conform::Core::IO::HTTP::http_install($filename, $uri, $cmd, \%flags, @expr)';
+'Usage: Conform::Core::IO::HTTP::file_install_http($filename, $uri, $cmd, \%flags, @expr)';
 
     if ( $filename =~ m/^\Q@{[HTTP_CACHE]}/ ) {
-        _deprecated http_install =>
-          'Conform::Core::IO::HTTP::http_install should not be used to write to HTTP cache';
+        _deprecated file_install_http =>
+          'Conform::Core::IO::HTTP::file_install_http should not be used to write to HTTP cache';
         return 1;
     }
 
@@ -589,7 +573,7 @@ sub dir_install_http {
             };
 
             $changed +=
-              http_install( "$dirname/$_", "$source/$_", undef, $flags, @expr );
+              file_install_http( "$dirname/$_", "$source/$_", undef, $flags, @expr );
             die "$@" if $@;
         }
     }

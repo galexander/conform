@@ -14,8 +14,7 @@ Conform::Core::IO::Command - Common 'command' utility functions
 
 =head1 DESCRIPTION
 
-The Conform::Core::IO::Command module contains a collection of useful functions for use in OIE
-scripts (primarily C<conform>).
+The Conform::Core::IO::Command module provides functions for command execution.
 
 =cut
 
@@ -35,8 +34,8 @@ use IO::Pipe;
 use IO::Socket;
 use IO::Select;
 
-use Conform::Core qw(action lines_prefix timeout safe $safe_mode);
-use Conform::Logger qw($log);
+use Conform::Core qw(action timeout safe $safe_mode);
+use Conform::Logger qw(debug);
 
 use base qw( Exporter );
 use vars qw(
@@ -158,6 +157,16 @@ examine part of the system.
 
 =cut
 
+sub _lines_prefix {
+    my $prefix = shift || '';
+    my $lines = join '', @_;
+    $lines =~ s/\n+\z//;    # zaps trailing endlines
+    my @l = map { m/^\Q$prefix/ ? "$_\n" : "$prefix$_\n" }
+      split /[\r\n]+/, $lines;
+
+    return wantarray ? @l : join( '', @l );
+}
+
 {
     my $nl = 1;
 
@@ -171,7 +180,7 @@ examine part of the system.
 
         return unless length $text;
 
-        $log->debug(lines_prefix( 'CMD: ', $text ));
+        debug _lines_prefix( 'CMD: ', $text );
 
         $nl = $text =~ m/\n\z/;
         return 1
@@ -204,7 +213,7 @@ sub command {
 
     my $result = action(
         $flags->{note} => sub {
-            $log->debug($flags->{intro}) if $flags->{intro};
+            debug $flags->{intro}  if $flags->{intro};
 
             my $pipe = IO::Pipe->new()
               or die "Could not create status pipe: $!\n";
@@ -306,7 +315,7 @@ sub command {
                 my $code = sub { $cmd->close };
 
                 while ( timeout($timeout, $code) ) {
-                    $log->warn("[timeout -- sending SIG$signame]");
+                    warn "[timeout -- sending SIG$signame]" ;
                     kill $signal, $child;
                     ( $signame, $signal ) = ( KILL => SIGKILL );
                     $timeout = $flags->{kill_timeout};
@@ -316,13 +325,13 @@ sub command {
             }
 
             if ( $? >> 8 ) {
-                $log->warn("$flags->{failure}  Exit code: " . ( $? >> 8 ));
+                warn "$flags->{failure}  Exit code: " . ( $? >> 8 );
             }
             elsif ($?) {
-                $log->warn("$flags->{failure}  Signal: " . ( $? & 0x7f ));
+                warn "$flags->{failure}  Signal: " . ( $? & 0x7f );
             }
             elsif ( $flags->{success} ) {
-                $log->debug($flags->{success});
+                debug $flags->{success};
             }
 
             return $?

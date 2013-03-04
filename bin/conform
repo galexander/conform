@@ -18,7 +18,7 @@ use Conform::Logger qw($log);
 use Conform::Runtime::Server::Posix;
 use Conform::SiteLoader;
 
-Conform::Logger->set('Stderr');
+# Conform::Logger->set('Stderr');
 
 my @debug;
 my @trace;
@@ -46,22 +46,18 @@ GetOptions(
 	'h|?'           => \&usage
 ) or usage(msg => 'Invalid parametes');
 
-my $cfg = Conform::Config->load_files({files => [$conf_file], use_ext => 1});
+Conform::Config->set(files => [$conf_file]);
 
-for (@$cfg) {
-    my ($filename, $config) = %$_;
-    my $me = basename $0;
-    my $conform_conf = $config->{$me};
-    if ($conform_conf and ref $conform_conf eq 'HASH') {
-        for (keys %$conform_conf) {
-            /iam/     and do { $iam          ||= $conform_conf->{$_} };
-            /runtime/ and do { $runtime_name ||= $conform_conf->{$_} };
-            /uri/     and do { $uri          ||= $conform_conf->{$_} };
-            /trace/   and do { $Conform::Debug::TRACE = $conform_conf->{$_} };
-            /debug/   and do { $Conform::Debug::DEBUG = $conform_conf->{$_} };
-        }
+my $config = Conform::Config->get_config(for => basename $0);
+
+if ($config and ref $config eq 'HASH') {
+    for (keys %$config) {
+        /iam/     and do { $iam          ||= $config->{$_} };
+        /runtime/ and do { $runtime_name ||= $config->{$_} };
+        /uri/     and do { $uri          ||= $config->{$_} };
+        /trace/   and do { $Conform::Debug::TRACE = $config->{$_} };
+        /debug/   and do { $Conform::Debug::DEBUG = $config->{$_} };
     }
-    Conform::Config->set($config);
 }
 
 eval "use ${runtime_name};";

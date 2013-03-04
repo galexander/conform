@@ -242,7 +242,6 @@ sub identify_work {
     my $name = shift;
     my $tag  = shift;
     my $value = shift;
-    $log->debug("identifying work for $tag");
     my $provider = $self->runtime->find_provider(Action => $tag);
     if ($provider) {
         Debug "found provider %s for %s with %s tag = %s",
@@ -300,7 +299,6 @@ sub extract_work {
     my $name = shift;
     my $hash = shift;
 
-    $log->debug("extract_work for $name");
     my @work = ();
     for my $tag (grep !/ISA/, grep !/^:/, keys %$hash) {
         push @work, $self->identify_work($name, $tag => $hash->{$tag});

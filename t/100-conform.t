@@ -1,4 +1,5 @@
-use Test::More qw(no_plan);
+package Conform::Test;
+use Test::More tests => 2;
 use strict;
 use FindBin;
 

@@ -145,10 +145,10 @@ for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
     no strict 'refs';
     *$method = sub {
         my $self = shift;
-        my $delegate = $self->delegate;
+        my $adapter = $self->adapter;
         my $check = $check_map{$method};
-        if ($check && $delegate->can($check) && $delegate->$check) {
-            $delegate->$method(@_);
+        if ($check && $adapter->can($check) && $adapter->$check) {
+            $adapter->$method(@_);
             $self->get_log->append(@_);
         }
     };
@@ -158,9 +158,8 @@ for my $method (grep /^is_/, @LOG_EXPORT_OK) {
     no strict 'refs';
     *$method = sub {
         my $self = shift;
-        my $delegate = $self->delegate;
-        print "Method = $method\n";
-       $delegate->$method(@_);
+        my $adapter = $self->adapter;
+       $adapter->$method(@_);
     };
 }
 
@@ -190,21 +189,21 @@ sub import {
                             = $Log::Log4perl::caller_depth + 1;
 
                     my $logger = __PACKAGE__->get_logger(category => caller);
-                    my $delegate = $logger->delegate;
+                    my $adapter = $logger->adapter;
                     my $check    = $check_map{$method};
 
-                    if ($check && $delegate->can($check) && $delegate->$check) {
-                        $delegate->$method(@_);
+                    if ($check && $adapter->can($check) && $adapter->$check) {
+                        $adapter->$method(@_);
                         $logger->get_log->append(@_);
                     }
 
                 } else {
                     my $logger = __PACKAGE__->get_logger(category => caller);
-                    my $delegate = $logger->delegate;
+                    my $adapter = $logger->adapter;
                     my $check    = $check_map{$method};
 
-                    if ($check && $delegate->can($check) && $delegate->$check) {
-                        $delegate->$method(@_);
+                    if ($check && $adapter->can($check) && $adapter->$check) {
+                        $adapter->$method(@_);
                         $logger->get_log->append(@_);
                     }
                 }
@@ -220,8 +219,8 @@ sub import {
         unless (defined &{"${caller}\::${method}"}) {
             *{"${caller}\::${method}"} = sub {
                 my $logger = __PACKAGE__->get_logger(category => caller);
-                my $delegate = $logger->delegate;
-                return $delegate->$method;
+                my $adapter = $logger->adapter;
+                return $adapter->$method;
             };
         }
     }
@@ -306,14 +305,14 @@ sub get_log {
     return $_log;
 }
 
-has 'delegate' => (
+has 'adapter' => (
     is => 'rw',
 );
 
 sub get_logger {
     my $package  = shift;
-    my $delegate = $package->SUPER::get_logger(@_);
-    $package->new(delegate => $delegate);
+    my $adapter = $package->SUPER::get_logger(@_);
+    $package->new(adapter => $adapter);
 }
 
 =head1  METHODS

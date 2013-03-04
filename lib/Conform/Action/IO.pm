@@ -97,13 +97,13 @@ EOUSAGE
 
 sub File_append
     : Action
-    : Args(+file, +line, +regex, cmd,  create, %attr) {
+    : Args(+file, +line, +regex, cmd,  create) {
     Debug "File_append(%s)", dump($_[0]);
 
     my $args = shift;
 
-    my ($file, $line, $regex, $cmd, $create, $attr)
-            = @{$args}{qw(file line regex cmd create attr)};
+    my ($file, $line, $regex, $cmd, $create)
+            = @{$args}{qw(file line regex cmd create)};
 
     $file && $line  or croak <<EOUSAGE;
 Usage: File_append { 
@@ -111,31 +111,30 @@ Usage: File_append {
         line => 'line',
         regex' => 'regex',
         cmd => 'cmd', 
-        create = 'create',
-        attr => { }
+        create = 'create'
 }
 EOUSAGE
 
-    file_append $file, $line, $regex, check_queue_cmd($cmd), $create, $attr;
+    file_append $file, $line, $regex, check_queue_cmd($cmd), $create;
 }
 
 
 sub File_modify
     : Action
-    : Args(+file, cmd, +@expr, %attr) {
+    : Args(+file, cmd, +@expr) {
     Debug "File_modify(%s)", dump($_[0]);
 
     my $args = shift;
 
-    my ($file, $cmd, $expr, $attr)
-            = @{$args}{qw(file cmd expr attr)};
+    my ($file, $cmd, $expr)
+            = @{$args}{qw(file cmd expr)};
 
     $file or croak <<EOUSAGE;
 Usage: File_modify { 
         file => 'file',
         cmd => 'cmd', 
-        expr => [],
-        attr => { }
+        expr => []
+}
 
 EOUSAGE
 

@@ -3,7 +3,7 @@ use strict;
 
 =head1  NAME
 
-Conform::Core::IO - Conform common io/file utility functions
+Conform::Core::IO - Conform Core IO utility functions
 
 =head1 SYNOPSIS
 
@@ -26,7 +26,7 @@ Conform::Core::IO - Conform common io/file utility functions
 
     $updated  = text_install $filename, $text,   $cmd, \%flags;
     $updated  = file_install $filename, $source, $cmd, \%flags, @expr;
-    $updated  = http_install $filename, $source, $cmd, \%flags, @expr;
+    $updated  = file_install_http $filename, $source, $cmd, \%flags, @expr;
 
     $updated  = file_append $filename, $line, $regex, $cmd, $create;
     $updated  = file_modify $filename, $cmd, @expr;
@@ -67,7 +67,7 @@ our @EXPORT_OK = (qw(slurp_file
                      safe_write
                      safe_write_file
                      file_install
-                     http_install
+                     file_install_http
                      text_install
                      set_attr
                      get_attr
@@ -116,7 +116,8 @@ use Conform::Core::IO::File (qw(safe_write
                                 this_tty));
 
 use Conform::Core::IO::HTTP (qw(slurp_http
-                                http_install                                
+                                file_install_http                                
+                                dir_list_http
                                 dir_install_http));
 
 use Conform::Core::IO::Command qw(command);
@@ -162,14 +163,14 @@ See L<Conform::Core::IO::File::safe_write>
 
 See L<Conform::Core::IO::File::set_attr>, L<Conform::Core::IO::File::get_attr>
 
-=item B<text_install>, B<file_install>, B<http_install>
+=item B<text_install>, B<file_install>, B<file_install_http>
 
     $updated = text_install $filename, $text,   $cmd, \%flags;
     $updated = file_install $filename, $source, $cmd, \%flags, @expr;
-    $updated = http_install $filename, $uri,    $cmd, \%flags, @expr;
+    $updated = file_install_http $filename, $uri,    $cmd, \%flags, @expr;
 
 See L<Conform::Core::IO::File::text_install>, L<Conform::Core::IO::file_install>
-    L<Conform::Core::IO::HTTP::http_install>
+    L<Conform::Core::IO::HTTP::file_install_http>
 
 =cut
 
@@ -177,7 +178,7 @@ sub file_install {
     my $filename = shift;
     my $source   = shift;
     return $source =~ m{^https?://}
-                ? return Conform::Core::IO::HTTP::http_install($filename, $source, @_)
+                ? return Conform::Core::IO::HTTP::file_install_http($filename, $source, @_)
                 : return Conform::Core::IO::File::file_install($filename, $source, @_);
 }
 

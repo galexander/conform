@@ -48,12 +48,6 @@ use Conform::Debug qw(Debug Trace);
 use Conform::Core::IO::Command qw(command);
 use Conform::Core::IO::File qw(dir_install safe_write_file safe);
 
-# use Conform::Log qw( debug note lines_prefix $debug $log_messages );
-# use Conform::Logger qw( debug note lines_prefix );
-sub debug { Debug @_ };
-sub note { Debug "note", @_ };
-sub lines_prefix { "" }
-
 use base qw( Exporter );
 use vars qw(
   $VERSION %EXPORT_TAGS @EXPORT_OK

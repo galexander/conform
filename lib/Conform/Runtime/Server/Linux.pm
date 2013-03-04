@@ -3,6 +3,8 @@ use strict;
 use Mouse;
 use Conform::Logger qw($log);
 
+use Conform::Task::Plugin;
+
 =head1  NAME
 
 Conform::Runtime::Server::Linux
@@ -20,6 +22,22 @@ extends 'Conform::Runtime::Server::Posix';
 =head1  METHODS
 
 =cut
+
+=head1  ACTIONS
+
+=cut
+
+=head1 TASKS
+
+=cut
+
+=head2 Hostname
+
+=cut
+
+sub Hostname
+     :Task {
+}
 
 =head1  SEE ALSO
 

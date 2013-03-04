@@ -46,7 +46,6 @@ sub get_plugin_type {
 
 requires qw(register);
 
-
 sub plugin_finder {
     my $self = shift;
     my $type = $self->get_plugin_type;

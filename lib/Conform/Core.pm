@@ -49,8 +49,7 @@ Conform::Core - Conform Core host configuration functions
 =head1 DESCRIPTION
 
 The Conform::Core module contains functions for extracting and validating
-host configurations from the Conform::Core common configuration files C<machines> and
-C<routers.cfg>.
+configurations conform configuration files C<machines>
 
 =cut
 
@@ -60,6 +59,7 @@ use strict;
 
 use Carp;
 use Conform::Debug qw(Debug);
+use Conform::Logger qw(debug note);
 use Conform::Core::Netgroups;
 use Data::Dumper;
 
@@ -72,7 +72,7 @@ $VERSION = (qw$Revision: 1.54 $)[1];
 %EXPORT_TAGS = (
     all => [
         qw(
-          action timeout safe note debug lines_prefix $log_messages
+          action timeout safe $log_messages
           $safe_mode $safe_write_msg
           comma_or_arrayref
           validate
@@ -122,19 +122,6 @@ The log message used when checking files into RCS.
 
 our $safe_mode      = 0;
 our $safe_write_msg = "Changed by $0";
-
-sub debug { print @_ }
-sub note  { print @_ }
-sub lines_prefix {
-    my $prefix = shift || '';
-    my $lines = join '', @_;
-    $lines =~ s/\n+\z//;    # zaps trailing endlines
-    my @l = map { m/^\Q$prefix/ ? "$_\n" : "$prefix$_\n" }
-      split /[\r\n]+/, $lines;
-
-    return wantarray ? @l : join( '', @l );
-}
-
 
 =head1 FUNCTIONS
 
