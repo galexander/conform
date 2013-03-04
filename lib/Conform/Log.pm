@@ -1,6 +1,22 @@
 package Conform::Log;
 use Mouse;
 
+=head1 NAME
+
+Conform::Log - Keep track of log messages for a conform 'run'
+
+=head1 SYNOPSIS
+
+    use Conform::Log;
+    my $log = Conform::Log->new();
+
+    $log->append("message");
+    my $messages = $log->get_messages();
+    my $messages = $log->messages;
+    print $$messages;
+
+=cut
+
 has 'messages' => (
     is => 'rw',
     isa => 'ScalarRef',
@@ -19,4 +35,23 @@ sub append {
     $$messages .= (join "\n", @_) ."\n";
 }
 
+=head1  SEE ALSO
+
+=over
+
+=item   L<Log::Any>
+
+=item   L<Log::Any::Adapter>
+
+=back
+
+=head1  AUTHOR
+
+Gavin Alexander (gavin.alexander@gmail.com)
+
+=cut
+
 1;
+
+# vi: set ts=4 sw=4:
+# vi: set expandtab:
