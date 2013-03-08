@@ -79,8 +79,6 @@ use Conform::Core qw(
                     action
                     timeout
                     safe
-                    $safe_mode
-                    $safe_write_msg
                     );
 
 use Conform::Logger qw($log);
@@ -95,7 +93,7 @@ $VERSION     = $Conform::VERSION;
 %EXPORT_TAGS = (
     all => [
         qw(
-          slurp_file slurp_http
+          slurp_file
           safe_write safe_write_file
           set_attr get_attr
           text_install file_install
@@ -262,7 +260,7 @@ sub safe_write {
         %reset = get_attr( \*_ );
 
         dir_check "$dirname/RCS", { mode => 0700 };
-        command $ci, '-q', "-m$safe_write_msg", '-t-Initial Checkin',
+        command $ci, '-q', "-m$Conform::Core::safe_write_msg", '-t-Initial Checkin',
           '-l', "$dirname/$filename";
 
         # reset attr
@@ -506,7 +504,7 @@ sub set_attr {
 
     my @stat = stat $filename;
     unless (@stat) {
-        die "Could not stat $filename: $!\n" unless $safe_mode;
+        die "Could not stat $filename: $!\n" unless $Conform::Core::safe_mode;
         return 0;
     }
 
@@ -1870,8 +1868,8 @@ sub this_tty
     #The command we are going to run is read only, non change making command.
     #Store the safe value away and then set it to 0 so that the command will run.
 
-    $log->debug('Suspending safe mode while determining the TTY') if $safe_mode;
-    local $safe_mode = 0;
+    $log->debug('Suspending safe mode while determining the TTY') if $Conform::Core::safe_mode;
+    local $Conform::Core::safe_mode = 0;
 
     command( "ps -o tty= $$", # this has ps look at our PID ($$) and return our tty (without column headers), its fishlogin proof!
         {

@@ -34,7 +34,7 @@ use IO::Pipe;
 use IO::Socket;
 use IO::Select;
 
-use Conform::Core qw(action timeout safe $safe_mode);
+use Conform::Core qw(action timeout safe);
 use Conform::Logger qw(debug);
 
 use base qw( Exporter );
@@ -51,8 +51,6 @@ $VERSION     = $Conform::VERSION;
     deprecated => [
     ],
 );
-
-@EXPORT_OK = qw( $safe_mode );
 
 Exporter::export_ok_tags( keys %EXPORT_TAGS );
 
@@ -208,8 +206,8 @@ sub command {
     $flags->{wait_timeout} ||= $flags->{timeout};
     $flags->{kill_timeout} = 10 unless exists $flags->{kill_timeout};
 
-    local $safe_mode = $safe_mode;
-    $safe_mode = 0 if $flags->{nosafe};
+    local $Conform::Core::safe_mode = $Conform::Core::safe_mode;
+    $Conform::Core::safe_mode = 0 if $flags->{nosafe};
 
     my $result = action(
         $flags->{note} => sub {
@@ -338,7 +336,7 @@ sub command {
         }
     );
 
-    return $safe_mode ? 0 : $result;
+    return $Conform::Core::safe_mode ? 0 : $result;
 }
 
 =back

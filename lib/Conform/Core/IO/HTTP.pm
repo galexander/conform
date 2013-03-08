@@ -55,8 +55,6 @@ use Conform::Core qw(
                     action
                     timeout
                     safe
-                    $safe_mode
-                    $safe_write_msg
                     );
 
 use Conform::Logger qw($log);
@@ -66,7 +64,6 @@ use Conform::Core::IO::File qw(safe_write safe_write_file dir_check);
 use base qw( Exporter );
 use vars qw(
   $VERSION %EXPORT_TAGS @EXPORT_OK
-  $safe_mode $safe_write_msg 
 );
 $VERSION     = (qw$Revision: 1.127 $)[1];
 %EXPORT_TAGS = (
@@ -81,8 +78,6 @@ $VERSION     = (qw$Revision: 1.127 $)[1];
     deprecated => [
     ],
 );
-
-@EXPORT_OK = qw( $safe_mode );
 
 Exporter::export_ok_tags( keys %EXPORT_TAGS );
 
@@ -302,7 +297,7 @@ sub slurp_http {
     }
 
     {
-        local $safe_mode = 0;
+        local $Conform::Core::safe_mode = 0;
         safe_write_file( $metadata_file,
           Data::Dumper->new( [$metadata] )->Terse(1)->Indent(0)->Dump);
         safe_write_file( $cache_file, $body ) if $code == 200;
