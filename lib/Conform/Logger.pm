@@ -141,6 +141,11 @@ my %check_map = (
     'fatalf'   => 'is_fatal',
 );
 
+my %log_map = (
+    'note' => 'notice',
+    'notef' => 'noticef',
+);
+
 # create log methods
 for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
     no strict 'refs';
@@ -153,8 +158,10 @@ for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
                         = $Log::Log4perl::caller_depth + 1
                             if $Log4perl;
 
-        if ($check && $adapter->can($check) && $adapter->$check) {
-            $adapter->$method(@_);
+        my $mapped = $log_map{$method};
+
+        if ($check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
+            $adapter->$mapped(@_);
             $self->get_log->append(@_);
         }
     };
@@ -226,8 +233,10 @@ sub import {
                 my $adapter = $logger->adapter;
                 my $check    = $check_map{$method};
 
-                if ($check && $adapter->can($check) && $adapter->$check) {
-                    $adapter->$method(@_);
+                my $mapped = $log_map{$method} || $method;
+
+                if ($check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
+                    $adapter->$mapped(@_);
                     $logger->get_log->append(@_);
                 }
             };
