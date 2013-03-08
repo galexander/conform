@@ -148,6 +148,5 @@ file_ok($logfile, "DEBUG - debug\nERROR - foo\nFATAL - fatal\n", "log4perl file 
 }
 
 
-warn "Foo";
 # vi: set ts=4 sw=4:
 # vi: set expandtab:

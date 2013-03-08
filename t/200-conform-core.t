@@ -14,7 +14,7 @@ require_ok('Conform::Core')
 	or die "# Conform::Core not available\n";
 
 my @all = qw(
-    action
+    action timeout safe 
 	comma_or_arrayref
 	validate
 	type_list i_isa_class i_isa_host
