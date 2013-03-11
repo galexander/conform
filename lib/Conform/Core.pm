@@ -12,7 +12,6 @@ Conform::Core - Conform Core host configuration functions
 
     $Conform::Core::safe_mode      = $safe_mode;
     $Conform::Core::safe_write_msg = $message;
-    $log_messages = $Conform::Core::log_messages;
 
     $result  = action $message => \&code, @args;
     $result  = safe   \&code, @args;
@@ -72,8 +71,7 @@ $VERSION = (qw$Revision: 1.54 $)[1];
 %EXPORT_TAGS = (
     all => [
         qw(
-          action timeout safe $log_messages
-          $safe_mode $safe_write_msg
+          action timeout safe
           comma_or_arrayref
           validate
           type_list i_isa_class i_isa_host
@@ -144,14 +142,14 @@ of the code reference.
 sub action {
     my ( $message, $code, @args ) = @_;
     $code and ref $code eq 'CODE'
-      or croak 'Usage: Conform::Core::IO::File::action($message, \&code, @args)';
+      or croak 'Usage: Conform::Core::action($message, \&code, @args)';
 
     if ($safe_mode) {
-        note "SKIPPING: $message\n" if $message;
+        note "SKIPPING: $message" if $message;
         return 1;
     }
     else {
-        note "$message\n" if $message;
+        note "$message" if $message;
         return $code->(@args);
     }
 }

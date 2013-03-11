@@ -106,6 +106,7 @@ extends 'Log::Any';
 
 # we use this flag to detect if we are using Log4perl
 my $Log4perl = 0;
+my $Set = 0;
 
 our @LOG_EXPORT_OK = (qw(
     $log
@@ -158,9 +159,9 @@ for my $method (grep !/^is_/, @LOG_EXPORT_OK) {
                         = $Log::Log4perl::caller_depth + 1
                             if $Log4perl;
 
-        my $mapped = $log_map{$method};
-
-        if ($check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
+        my $mapped = $log_map{$method} || $method;
+          
+        if ($mapped && $check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
             $adapter->$mapped(@_);
             $self->get_log->append(@_);
         }
@@ -205,6 +206,10 @@ sub import {
     my $package  = shift;
     my $caller   = caller;
 
+    if (!$Set) {
+        __PACKAGE__->set('+Conform::Logger::Native');
+    }
+
     my $log      = grep /^\$/,  @_;
     my @methods  = grep !/^\$/, @_;
 
@@ -235,7 +240,7 @@ sub import {
 
                 my $mapped = $log_map{$method} || $method;
 
-                if ($check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
+                if ($mapped && $check && $adapter->can($mapped) && $adapter->can($check) && $adapter->$check) {
                     $adapter->$mapped(@_);
                     $logger->get_log->append(@_);
                 }
@@ -264,6 +269,7 @@ sub import {
         my $varname = "$caller\::log";
         *$varname = \$log;
     }
+
 }
 
 =head1  CLASS METHODS
@@ -292,6 +298,7 @@ sub set {
         $Log4perl++;
     }
     Log::Any::Adapter->set($adapter, @_);
+    $Set++;
 }
 
 =head2 get_logger
