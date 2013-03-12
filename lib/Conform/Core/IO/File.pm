@@ -725,7 +725,7 @@ sub text_install {
         else {
             safe_write_file $filename, $text,
               { note =>
-                  "Installing '$filename' from $flags->{srcfn} @{[ $rcs ? '(skipped RCS)' : '']}" };
+                  "Installing '$filename' from $flags->{srcfn}@{[ $rcs ? '(skipped RCS)' : '']}" };
         }
     }
 
