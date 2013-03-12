@@ -4,6 +4,25 @@ use Mouse;
 extends 'Log::Any::Adapter::Stderr';
 
 
+=head1  NAME
+
+Conform::Logger::Native
+
+=head1 SYNOPSIS
+
+ use Conform::Logger::Native;
+ 
+ my $logger = Conform::Logger::Native->new(level => 'DEBUG');
+ $logger->set_debug();
+
+ $logger->debug("message");
+
+=cut
+
+=head1 DESCRIPTION
+
+=cut
+
 our @LOG_LEVELS = (qw(
     trace 
     debug 
