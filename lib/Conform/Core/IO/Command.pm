@@ -1,5 +1,3 @@
-#!/bin/false
-
 =encoding utf8
 
 =head1 NAME
@@ -46,6 +44,7 @@ $VERSION     = $Conform::VERSION;
     all => [
         qw(
           command
+          find_command
           )
     ],
     deprecated => [
@@ -76,6 +75,8 @@ sub _deprecated {
     $do_deprecated ? carp @_ : croak @_;
     $deprecated{$key}++;
 }
+
+=over
 
 =item B<command>
 
@@ -341,12 +342,32 @@ sub command {
 
 =back
 
+=over 
+
+=item B<find_command>
+
+    $path = find_command $command;
+
+Given an executable name find the full path.
+
+=back
+
 =cut
+
+sub find_command {
+    my $command = shift
+        or return undef;
+
+    for my $path (qw(/bin /sbin /usr/bin /usr/sbin /usr/local/bin)) {
+        return "$path/$command"
+            if -x "$path/$command";
+    }
+}
+
+
 
 1;
 
 =head1 SEE ALSO
-
-L<conform>
 
 =cut

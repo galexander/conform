@@ -83,7 +83,7 @@ use Conform::Core qw(
 
 use Conform::Logger qw($log);
 
-use Conform::Core::IO::Command qw(command);
+use Conform::Core::IO::Command qw(command find_command);
 
 use base qw( Exporter );
 use vars qw(
@@ -129,9 +129,10 @@ my $CYAN   = "\e[36m";
 
 # commands we use
 
-my $ci = '/usr/bin/ci';
-my $rcs = -x $ci;
-Debug "Couldn't find $ci, not using 'rcs' for file modifications" unless $rcs;
+my $ci = find_command 'ci';
+my $co = find_command 'co';
+my $have_rcs = $ci && $co;
+Debug "Couldn't find $ci, not using 'rcs' for file modifications" unless $have_rcs;
 
 my $intest = $ENV{'HARNESS_VERSION'} || $ENV{'HARNESS_ACTIVE'};
 
@@ -233,7 +234,7 @@ sub safe_write {
     my %reset   = ();
     my $changed = 0;
 
-    if ( -f "$dirname/$filename" && $rcs) {
+    if ( -f "$dirname/$filename" && $have_rcs) {
 
         # work around a quirk in rcs < 5.7.33, which doesn't preserve
         # permissions
@@ -254,7 +255,7 @@ sub safe_write {
 
     $changed += safe_write_file @_, $flags;
 
-    if ( -f "$dirname/$filename" && $rcs ) {
+    if ( -f "$dirname/$filename" && $have_rcs ) {
 
         # save attr
         %reset = get_attr( \*_ );
@@ -699,7 +700,7 @@ sub text_install {
 
     $flags->{srcfn} ||= 'text';
     $flags->{rcs} = 1 unless exists $flags->{rcs};
-    $flags->{rcs} = 0 unless $rcs;
+    $flags->{rcs} = 0 unless $have_rcs;
 
     # create containing directory if it doesn't exist
     ( my $path = $filename ) =~ s{/[^/]+$}{};
@@ -725,7 +726,7 @@ sub text_install {
         else {
             safe_write_file $filename, $text,
               { note =>
-                  "Installing '$filename' from $flags->{srcfn}@{[ $rcs ? '(skipped RCS)' : '']}" };
+                  "Installing '$filename' from $flags->{srcfn}@{[ $have_rcs ? '(skipped RCS)' : '']}" };
         }
     }
 
@@ -1345,6 +1346,8 @@ sub file_unlink {
 
     $flags->{rcs} = 1
       unless exists $flags->{rcs};
+
+    $flags->{rcs} = 0 unless $have_rcs;
 
     ( my $dirname, $filename ) = $filename =~ m/(?:(.*)\/)?(.*)/;
     $dirname ||= '.';
