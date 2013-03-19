@@ -1,5 +1,3 @@
-#!/usr/bin/perl -w
-
 use strict;
 
 eval 'require Test::More' or do {

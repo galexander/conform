@@ -1,4 +1,3 @@
-package Conform::Test::Core::SafeMode;
 use strict;
 
 use Test::More tests => 9;

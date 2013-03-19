@@ -1,6 +1,3 @@
-#!/usr/bin/perl
-# $Id: 112-utils-comment.t,v 1.2 2011/09/06 04:19:06 deanh Exp $
-
 use strict;
 use warnings;
 

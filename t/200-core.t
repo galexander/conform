@@ -1,5 +1,3 @@
-package Conform::Test::Core;
-
 use warnings;
 use strict;
 

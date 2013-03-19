@@ -1,8 +1,6 @@
-#!/usr/bin/perl -w
-
 use strict;
 
-use Test::More tests => 25;
+use Test::More tests => 26;
 use Test::File;
 use Test::Files;
 use Test::Trap;

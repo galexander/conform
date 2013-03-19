@@ -12,6 +12,7 @@ require_ok('Conform::Core::IO::Command')
 
 my @all = qw(
 	command
+    find_command
 );
 
 can_ok('Conform::Core::IO::Command', @all);

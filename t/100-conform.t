@@ -1,6 +1,6 @@
-package Conform::Test;
-use Test::More tests => 2;
 use strict;
+
+use Test::More tests => 2;
 use FindBin;
 
 use lib "$FindBin::Bin/../lib";

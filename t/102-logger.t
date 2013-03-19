@@ -1,4 +1,3 @@
-package Conform::Test::Logger;
 use strict;
 use Test::More tests => 19;
 use Test::Trap;
@@ -114,7 +113,7 @@ my ($logfh, $logfile) = tempfile(UNLINK => 1);
 
 my $log_conf = <<EOCONF;
        log4perl.rootLogger=DEBUG
-       log4perl.category.Conform.Test.Logger          = DEBUG, Logfile, Screen
+       log4perl.category.main         = DEBUG, Logfile, Screen
 
        log4perl.appender.Logfile          = Log::Log4perl::Appender::File
        log4perl.appender.Logfile.filename = $logfile

@@ -1,8 +1,7 @@
-package Conform::Test::Config;
+use strict;
 use Test::More tests => 12;
 use File::Temp qw(tempdir);
 use File::Spec; 
-use strict;
 use FindBin;
 use Data::Dumper;
 use lib "$FindBin::Bin/../lib";

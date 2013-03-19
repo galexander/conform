@@ -43,8 +43,6 @@ sub set {
     if (ref $_[0] && ref $_[0] eq 'HASH') {
         $root = shift @_;
     } else {
-use Data::Dumper;
-print Dumper(\@_);
         my $cfg = $package->SUPER::load_files({@_, use_ext => 1});
         $root = { };
         for (@$cfg) {
