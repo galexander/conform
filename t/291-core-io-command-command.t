@@ -1,5 +1,3 @@
-package Conform::Test::Core::IO::Command;
-
 use warnings;
 use strict;
 

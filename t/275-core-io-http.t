@@ -1,4 +1,3 @@
-package Conform::Test::Core::IO::HTTP;
 use strict;
 use warnings;
 use FindBin;

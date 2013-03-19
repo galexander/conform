@@ -1,4 +1,3 @@
-package Conform::Test::Core::IO::Command;
 use strict;
 use warnings;
 use FindBin;
