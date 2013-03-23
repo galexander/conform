@@ -13,7 +13,7 @@ can_ok 'Conform::Config', 'set';
 can_ok 'Conform::Config', 'get_config';
 
 my $perl_config = {
-    'Conform::Test::Config' => {
+    'main' => {
         param => 'value'
     },
 
@@ -44,7 +44,7 @@ $Data::Dumper::Terse++;
 open my $fh, '>', "$perl_config_file"
     or die "$!";
 
-$perl_config->{'Conform::Test::Config'}->{param2} = 'value2';
+$perl_config->{'main'}->{param2} = 'value2';
 $perl_config->{foo}->{param} = 'value';
 
 print $fh <<EOPERL;
@@ -70,7 +70,7 @@ SKIP : {
 [foo]
 bar=baz
 
-[Conform::Test::Config]
+[main]
 param=value
 
 EOINI
