@@ -10,22 +10,16 @@ package Conform::Runtime;
 
 =head1  SYNOPSIS
 
-    package Conform::Special::Runtime;
+    package Conform::Runtime::Special;
     use Any::Mouse;
+
+    our $VERSION = 0.1;
     
     extends 'Conform::Runtime';
 
-    Name "Special::Runtime";
-    Version "0.1";
-    ID "Special::Runtime-0.1";
-
-    sub special_method {
-        # do special stuff here
-    }
-
 =head1  DESCRIPTION
 
-Conform::Runtime is a base class that must be extended by something more 'runtime' device
+Conform::Runtime is a base class that must be extended by something more device
 or operating system specific.
 All runtimes must extend Conform::Runtime.
 
@@ -48,10 +42,8 @@ our $VERSION = $Conform::VERSION;
 
     Conform::Runtime->new(name => 'foo', version => '0.1', id => 'foo-0.1');
 
-In most cases these will be left blank, in which case sensible defaults are chosen.
+In most cases these parameters are not required. Sensible defaults are chosen.
 See below for more information.
-
-Also, you can specify these using the syntactic sugar.  See L<SYNTACTIC SUGAR> below.
 
 =head3 Parameters 
 
@@ -65,6 +57,10 @@ Try 'man perlmod', or 'man perlmodlib' on your machine for naming.
 
 If its not supplied it defaults to the Perl package name that defines the Runtime.
 
+The explicit check is:
+
+    my $runtime_name_regex    = qr/^[A-Za-z]+((::[A-Za-z]+)+)?$/;
+
 =item * version (OPTIONAL)
 
 A version for this runtime.  The version must adhere to the Perl version specification.
@@ -73,12 +69,17 @@ Examples include '0.1', '1', 'v0.2'.
 If its not supplied then its set to $VERSION for the Perl package that defines the Runtime.
 If this is not set - then an error is thrown.
 
+The explicit check is:
+
+    my $runtime_version_regex = qr/^v?[0-9]+(\.[0-9])?[0-9]?$/;
+
 =item * id (OPTIONAL)
 
-An id for this runtime.  The id can only contain valid characters in L<name> and <version>.
-Or more specifically,
+An id for this runtime.  The id can only contain valid characters as defined in L<name> and L<version>.
 
-    ^[a-zA-Z\:\.0-9\-]+$
+The explicit check is:
+
+    my $runtime_id_regex      = qr/^$runtime_name_regex-$runtime_version_regex$/;
 
 =back
 
@@ -106,6 +107,8 @@ sub BUILD {
     $self;
 }
 
+# Declare some 'subtypes' for validation
+
 my $runtime_name_regex    = qr/[A-Za-z]+((::[A-Za-z]+)+)?/;
 my $runtime_version_regex = qr/v?[0-9]+(\.[0-9])?[0-9]?/;
 my $runtime_id_regex      = qr/$runtime_name_regex-$runtime_version_regex$/;
@@ -126,21 +129,95 @@ subtype 'RuntimeID',
     message { "invalid value $_ for runtime 'id'" };
 
 
+=head2 name
+
+    my $name = $runtime->name;
+
+Get the runtime name - which was set during object
+construction.
+
+=head3 Parameters 
+
+None
+
+=head3 Returns
+
+=over
+
+=item * $name
+
+    The name of this runtime
+
+=back
+
+=cut
+
 has 'name' => (
     is => 'rw',
     isa => 'RuntimeName'
 );
+
+=head2 version
+
+    my $version = $runtime->version;
+
+Get the runtime version - which was set during object
+construction.
+
+=head3 Parameters 
+
+None
+
+=head3 Returns
+
+=over
+
+=item * $version
+
+    The version of this runtime
+
+=back
+
+=cut
 
 has 'version' => (
     is => 'rw',
     isa => 'RuntimeVersion',
 );
 
+=head2 id
+
+    my $id = $runtime->id;
+
+Get the runtime id - which was set during object
+construction.
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * $id
+
+    The id of this runtime
+
+=back
+
+=cut
+
 has 'id' => (
     is => 'rw',
     isa => 'RuntimeID',
 );
 
+
+# Add some constraints - these values can only be set once.
+# During object construction.  We don't specify as 'required'
+# as they can be determined post construction and can 
+# depend on each other.
 
 around [qw(name)] => sub {
     my $orig = shift;
@@ -150,6 +227,7 @@ around [qw(name)] => sub {
     @_ and defined $value and croak "'name' is already set to $value";
     $self->$orig(@_);
 };
+
 around [qw(version)] => sub {
     my $orig = shift;
     my $self = shift;
@@ -158,6 +236,7 @@ around [qw(version)] => sub {
     @_ and defined $value and croak "'version' is already set to $value";
     $self->$orig(@_);
 };
+
 around [qw(id)] => sub {
     my $orig = shift;
     my $self = shift;
@@ -168,28 +247,198 @@ around [qw(id)] => sub {
 };
 
 
+=head2 inheritance
 
-has data_providers => (
-    is => 'rw',
-    isa => 'ArrayRef',
-);
+    my $inheritance = $runtime->inheritance;
+    for (@$inheritance) {
+        ...
+    }
 
-has data => (
-    is => 'rw',
-);
+Get all the 'classes' that this runtime inherits from.
+Generally useful for determining plugin resolution.
 
-has 'ancestors' => (
-    'is' => 'rw',
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * \@inheritance
+
+    The inheritance of this runtime as an ArrayRef
+
+=back
+
+=cut
+
+##
+# _traverse_inheritance ($package, &callback)
+# recursive helper function that traverses the 
+# @ISA of '$package' and executes callback->($parent)
+# for each parent found.
+
+sub _traverse_inheritance;
+sub _traverse_inheritance {
+    my $package = shift;
+    my $method  = shift;
+
+    no strict 'refs';
+    if (defined @{"${package}\::ISA"}) {
+        for my $isa (@{"${package}\::ISA"}) {
+            $method->($isa);
+            _traverse_inheritance $isa, $method;
+        }
+    }
+}
+
+has 'inheritance' => (
+    'is' => 'ro',
     'isa' => 'ArrayRef',
+    'writer' => '_set_inheritance',
+    'default' => sub {
+        my $self = shift;
+        my $package = blessed $self;
+        my @runtimes = ();
+        _traverse_inheritance $package, sub {
+            push @runtimes, $_[0] if $_[0]->isa(__PACKAGE__);
+        };
+        \@runtimes;
+    },
 );
+
+=head2 providers
+
+    my $providers = $runtime->providers;
+    for my $provider_type (keys %$providers) {
+        for my $provider (@{$providers->{$provider_type}) {
+            ...
+        }
+    }
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * \%providers
+
+The function providers, or runtime plugins
+of this runtime as a HashRef.
+Function providers can be either:
+
+=over
+
+=item Data
+
+Runtime 'Data' plugins are plugins that provide methods to
+get data, or information from the runtime.
+
+See L<Conform::Data>
+
+=item Action
+
+Runtime 'Action' plugins are plugins that provide methods to 
+execute 'Actions' for this runtime.
+
+See L<Conform::Action>
+
+=item Task
+
+Runtime 'Task' plugins are plugins that provide methods to
+execute 'Tasks' for this runtime.
+
+See L<Conform::Task>
+
+=back
+
+=back
+
+=cut
+
 
 has providers => (
-    is => 'rw',
+    is => 'ro',
     isa => 'HashRef',
     default => sub { {} },
+    writer => '_set_providers',
+);
+
+has pending_providers => (
+    is => 'ro',
+    isa => 'HashRef',
+    default => sub => { {} },
 );
 
 no Mouse;
+
+=head2 data_providers
+
+    my $providers = $runtime->data_providers;
+    for my $provider (@{$providers}) {
+        ...
+    }
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * \@data_providers
+
+The data provider plugins of this runtime as an ArrayRef
+
+Runtime 'Data' plugins are plugins that provide methods to
+get data, or information from the runtime.
+
+See L<Conform::Data>
+
+=back
+
+=cut
+
+sub data_providers {
+    my $self = shift;
+    my $providers = $self->providers;
+    return wantarray
+            ? @{$providers->{Data} ||=[]}
+            :  ($providers->{Data} ||=[]);
+}
+
+=head2 action_providers
+
+    my $providers = $runtime->data_providers;
+    for my $provider (@{$providers}) {
+        ...
+    }
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * \@action_providers
+
+The action provider plugins of this runtime as an ArrayRef
+
+Runtime 'Action' plugins are plugins that provide methods to 
+execute 'Actions' for this runtime.
+
+See L<Conform::Action>
+
+=back
+
+=cut
 
 sub action_providers {
     my $self = shift;
@@ -200,6 +449,34 @@ sub action_providers {
 
 }
 
+=head2 task_providers
+
+    my $providers = $runtime->task_providers;
+    for my $provider (@{$providers}) {
+        ...
+    }
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+=over
+
+=item * \@task_providers
+
+The task provider plugins of this runtime as an ArrayRef
+
+Runtime 'Task' plugins are plugins that provide methods to
+execute 'Tasks' for this runtime.
+
+See L<Conform::Task>
+
+=back
+
+=cut
+
 sub task_providers {
     my $self = shift;
     my $providers = $self->providers;
@@ -209,94 +486,101 @@ sub task_providers {
 
 }
 
+=head2 register_provider
 
+    $runtime->register_provider($provider);
 
-sub _traverse_inheritance;
-sub _traverse_inheritance {
-    my $package = shift;
-    my $method  = shift;
+Register a provider/plugin with this runtime.
 
-    $method->($package);
+=head3 Parameters
 
-    no strict 'refs';
-    if (defined @{"${package}\::ISA"}) {
-        for my $isa (@{"${package}\::ISA"}) {
-            _traverse_inheritance $isa, $method;
+=over
+
+=item $provider - A Conform::Plugin to register with this runtime.
+
+=back
+
+=head3 Returns
+
+None
+
+=cut
+
+sub _extract_requires {
+    my $type  = shift;
+    my $check = shift;
+    my %extract = ();
+
+    for my $key (keys %$check) {
+        if ($key =~ /^$type\.(\S+)/) {
+            my $param = shift;
+            $extract{$param} = $check->{$key};
         }
     }
-}
-
-sub boot {
-    my $self = shift;
-
-    Trace;
-
-    Debug "Booting runtime %s %s", $self->getId(), $self->getVersion();
-
-    my $package = blessed $self;
-    Debug "Determining ancestory for @{[ $package ]}";
-
-    my @runtimes = ();
-    _traverse_inheritance $package, sub {
-        push @runtimes, $_[0]
-            if $_[0]->isa(__PACKAGE__);
-    };
-
-    Debug "Ancestory = %s", dump(\@runtimes);
-    
-    $self->ancestors(\@runtimes);
-
-    Debug "Loading action providers for %s", blessed $self;
-    $self->_discover_providers
-        ('Action');
-
-    Debug "Loading task providers for %s",  blessed $self;
-    $self->_discover_providers
-        ('Task');
-
-    Debug "Loading data providers for %s",   blessed $self;
-    $self->_discover_providers
-        ('Data');
-
-    $self;
-}
-
-sub get_data {
-    my $self   = shift;
-    my $method = shift;
-
-    if ($self->can($method)) {
-        return $self->$method(@_);
-    }
-
-    my $data_provider = $self->find_data_provider ($method, @_);
-    if ($data_provider) {
-        $data_provider->resolve(@_);
-    }
-    return undef;
-}
-
-sub call_action {
-    my $self = shift;
-    my $method = shift;
-    
-    if ($self->can($method)) {
-        return $self->$method(@_);
-    }
-
-    my $action_provider = $self->find_action_provider($method, @_);
-    if ($action_provider) {
-        $action_provider->execute(@_);
-    }
-    return undef;
+    return scalar keys %extract
+            ? \%extract
+            : undef;
 }
 
 sub register_provider {
-    my $self = shift;
-    my $type = shift;
+    my $self     = shift;
     my $provider = shift;
+    my $type     = $provider->type;
+    
+    Debug "Attempting to register provider %s %s",
+          $provider->name,
+          $type;
 
-    my $providers = $self->providers;
+    my $requires  = $provider->requires;
+    
+    Debug "Provider has the following requirements %s",
+          Dump($requires);
+
+    my @runtime_requires;
+    my @provider_requires;
+
+    # collect any requirements
+    for (@$requires) {
+        if (my $requires = _extract_requires 'runtime', $_) {
+            push @runtime_requires, $requires;
+        }
+        if (my $requires = _extract_requires 'provider', $_) {
+            push @provider_requires, $requires;
+        }
+    }
+
+    my $runtime_ok = 0;
+
+    # check for runtime requirements
+    RUNTIME_REQUIRE:
+    for my $runtime_require (@$runtime_requires) {
+        for my $runtime ((blessed $self, @{[$self->inheritance]})) {
+            for my $key (keys %$runtime_require) {
+                if ($runtime->can($key) &&
+                    $runtime->$key() eq $runtime_require->{$key}) {
+                    delete $runtime_require;
+                }
+            }
+            if(scalar (keys %$runtime_require)) {
+                $runtime_ok++;
+                last RUNTIME_REQUIRE;
+            }
+        }
+    }
+
+    unless ($runtime_ok) {
+        warn "Runtime requirements %s not met for %s",
+              Dump($runtime_requires),
+              $provider->name;
+        return;
+    }
+
+    # check for provider requirements
+    for (@$provider_requires) {
+        
+
+    }
+
     $providers->{$type} ||= [];
     push @{$providers->{$type}}, $provider;
     $provider;
@@ -317,6 +601,24 @@ sub find_provider {
 
 
 
+=head2 boot
+
+    $runtime->boot();
+
+"Boots" this runtime.  Booting is the process of
+loading ALL plugins for this and parent runtimes.
+Where ALL plugins are 'Data', 'Action', and 'Task'.
+
+=head3 Parameters
+
+None
+
+=head3 Returns
+
+None
+
+=cut
+
 sub _discover_providers {
     my $self = shift;
     my $type = shift;
@@ -325,8 +627,7 @@ sub _discover_providers {
 
     my $package = blessed $self;
 
-
-    Debug "finding %s provider for %s",
+    Debug "Discovering %s provider for %s",
                 lc $type,
                 $package; 
     
@@ -338,14 +639,59 @@ sub _discover_providers {
 
     Debug "%s", dump ($loader);
 
-    my $plugins = $loader->get_plugins(search_path => $self->ancestors);
+    my $plugins = $loader->get_plugins(search_path => [ $package, @{$self->inheritance} ]);
 
     Debug "Plugins %s", dump($plugins);
 
     for (@$plugins) {
         $self->register_provider($type => $_);
     }
-
 }
 
+sub boot {
+    my $self = shift;
+
+    Trace;
+
+    Debug "Booting runtime %s", $self->id;
+
+    my $package = blessed $self;
+
+    my @runtimes = @{$self->inheritance};
+    
+    Debug "Runtime Inheritance Chain = %s", dump(\@runtimes);
+    
+    Debug "Loading action providers for %s", $package;
+    $self->_discover_providers
+        ('Action');
+
+    Debug "Loading task providers for %s",  $package;
+    $self->_discover_providers
+        ('Task');
+
+    Debug "Loading data providers for %s",  $package;
+    $self->_discover_providers
+        ('Data');
+
+    $self;
+}
+
+=head1  AUTHOR
+
+Gavin Alexander (gavin.alexander@gmail.com)
+
+=head1  COPYRIGHT
+
+Copyright 2012 (Gavin Alexander)
+
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
+
+The full text of the license can be found in the
+LICENSE file included with this module
+
+=cut
+
 1;
+# vi: set ts=4 sw=4:
+# vi: set expandtab:
