@@ -187,6 +187,23 @@ EOPLUGIN
     }
 }
 
+sub get_plugins {
+    my $self = shift;
+
+    Trace;
+
+    my $finder = $self->plugin_finder (@_);
+
+    Debug "%s", dump($finder);
+
+    for ($finder->plugins) {
+        Debug "Found potential plugin provider %s", $_;
+        $self->plugin($_);
+    }
+
+    $self->plugins;
+}
+
 =head1  SEE ALSO
 
 =head1  AUTHOR

@@ -129,24 +129,6 @@ sub register {
     $self->plugins($plugins);
 }
 
-sub get_plugins {
-    my $self = shift;
-
-    Trace;
-
-    my $finder = $self->plugin_finder (@_);
-    
-    Debug "%s", dump($finder);
-
-    for ($finder->plugins) {
-        Debug "Found potential plugin provider %s", $_;
-        $self->plugin($_);
-    }
-
-    $self->plugins;
-}
-
-
 1;
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
