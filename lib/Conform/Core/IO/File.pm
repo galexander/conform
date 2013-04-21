@@ -132,7 +132,7 @@ my $CYAN   = "\e[36m";
 my $ci = find_command 'ci';
 my $co = find_command 'co';
 my $have_rcs = $ci && $co;
-Debug "Couldn't find $ci, not using 'rcs' for file modifications" unless $have_rcs;
+Debug "Couldn't find 'ci', not using 'rcs' for file modifications" unless $have_rcs;
 
 my $intest = $ENV{'HARNESS_VERSION'} || $ENV{'HARNESS_ACTIVE'};
 

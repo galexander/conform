@@ -3,6 +3,7 @@ use Mouse;
 
 extends 'Conform::Plugin';
 
+use Conform;
 use Conform::Core qw();
 use Conform::Action;
 use Storable qw(dclone);
@@ -10,6 +11,8 @@ use Conform::Debug qw(Trace Debug);
 use Data::Dump qw(dump);
 use Conform::Plugin;
 use Conform::ExecutionContext;
+
+our $VERSION = $Conform::VERSION;
 
 sub import {
     my $package = shift;
@@ -31,31 +34,6 @@ sub import {
 
     __PACKAGE__->SUPER::import (package => $caller);
 }
-
-has 'id'        => ( is => 'rw', isa => 'Str' );
-has 'name'      => ( is => 'rw', isa => 'Str' );
-has 'impl'      => ( is => 'rw', isa => 'CodeRef' );
-has 'version'   => ( is => 'rw', isa => 'Str');
-
-sub extract_directives {
-    my $self       = shift;
-    my @search     = @_;
-    my @directives = ();
-    for my $arg (grep { ref $_ eq 'HASH' } @search) {
-        for my $key (keys %$arg) {
-            if ($key =~ /^:(\S+)/) {
-                push @directives, { $1 => $arg->{$key} };
-            } else {
-                if (ref $arg->{$key} eq 'HASH') {
-                    Debug "Searching deep %s", dump($arg->{$key});
-                    push @directives, $self->extract_directives ($arg->{$key});
-                }
-            }
-        }
-    }
-    return @directives;
-}
-
 
 sub _args {
     my($params, $defaults) = @_;

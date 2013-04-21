@@ -21,6 +21,7 @@ package Conform::Runtime;
 
 Conform::Runtime is a base class that must be extended by something more device
 or operating system specific.
+
 All runtimes must extend Conform::Runtime.
 
 =cut
@@ -40,50 +41,13 @@ our $VERSION = $Conform::VERSION;
 
 =head2  new
 
-    Conform::Runtime->new(name => 'foo', version => '0.1', id => 'foo-0.1');
-
-In most cases these parameters are not required. Sensible defaults are chosen.
-See below for more information.
+    Conform::Runtime->new();
 
 =head3 Parameters 
 
+None
+
 =over
-
-=item * name (OPTIONAL)
-
-A name for this runtime.  The name must adhere to Perl module package naming conventions.
-Examples include 'Runtime::Linux' or 'my::runtime'.
-Try 'man perlmod', or 'man perlmodlib' on your machine for naming.
-
-If its not supplied it defaults to the Perl package name that defines the Runtime.
-
-The explicit check is:
-
-    my $runtime_name_regex    = qr/^[A-Za-z]+((::[A-Za-z]+)+)?$/;
-
-=item * version (OPTIONAL)
-
-A version for this runtime.  The version must adhere to the Perl version specification.
-Examples include '0.1', '1', 'v0.2'.
-
-If its not supplied then its set to $VERSION for the Perl package that defines the Runtime.
-If this is not set - then an error is thrown.
-
-The explicit check is:
-
-    my $runtime_version_regex = qr/^v?[0-9]+(\.[0-9])?[0-9]?$/;
-
-=item * id (OPTIONAL)
-
-An id for this runtime.  The id can only contain valid characters as defined in L<name> and L<version>.
-
-The explicit check is:
-
-    my $runtime_id_regex      = qr/^$runtime_name_regex-$runtime_version_regex$/;
-
-=back
-
-=cut
 
 sub BUILD {
     my $self = shift;
@@ -91,50 +55,17 @@ sub BUILD {
     my $version = $self->version;
     my $id      = $self->id;
 
-    my $class = blessed $self;
-    no strict 'refs';
-    unless (defined $name) {
-        $self->name($name = $class);
-    }
+    die "\$VERSION not set for @{[$name]}"
+        unless defined $version;
 
-    unless (defined $version) {
-        $self->version($version = ${"${class}\::VERSION"});
-    }
-
-    unless (defined $id) {
-        $self->id(sprintf "%s-%s", $name, $version);
-    }
     $self;
 }
-
-# Declare some 'subtypes' for validation
-
-my $runtime_name_regex    = qr/[A-Za-z]+((::[A-Za-z]+)+)?/;
-my $runtime_version_regex = qr/v?[0-9]+(\.[0-9])?[0-9]?/;
-my $runtime_id_regex      = qr/$runtime_name_regex-$runtime_version_regex$/;
-
-subtype 'RuntimeName',
-    as 'Str',
-    where { /^$runtime_name_regex$/ },
-    message { "invalid value $_ for runtime 'name'" };
-
-subtype 'RuntimeVersion',
-    as 'Str',
-    where { /^$runtime_version_regex$/ },
-    message { "invalid value $_ for runtime 'version'" };
-
-subtype 'RuntimeID',
-    as 'Str',
-    where { /^$runtime_id_regex$/ },
-    message { "invalid value $_ for runtime 'id'" };
-
 
 =head2 name
 
     my $name = $runtime->name;
 
-Get the runtime name - which was set during object
-construction.
+Get the runtime name - the package name
 
 =head3 Parameters 
 
@@ -152,17 +83,16 @@ None
 
 =cut
 
-has 'name' => (
-    is => 'rw',
-    isa => 'RuntimeName'
-);
+sub name {
+    my $package = shift;
+    return blessed $package || $package || __PACKAGE__;
+}
 
 =head2 version
 
     my $version = $runtime->version;
 
-Get the runtime version - which was set during object
-construction.
+Get the runtime version - $VERSION
 
 =head3 Parameters 
 
@@ -180,17 +110,18 @@ None
 
 =cut
 
-has 'version' => (
-    is => 'rw',
-    isa => 'RuntimeVersion',
-);
+sub version {
+    my $self = shift;
+    my $name = $self->name;
+    no strict 'refs';
+    return ${"${name}\::VERSION"}
+}
 
 =head2 id
 
     my $id = $runtime->id;
 
-Get the runtime id - which was set during object
-construction.
+Get the runtime id
 
 =head3 Parameters
 
@@ -208,44 +139,9 @@ None
 
 =cut
 
-has 'id' => (
-    is => 'rw',
-    isa => 'RuntimeID',
-);
-
-
-# Add some constraints - these values can only be set once.
-# During object construction.  We don't specify as 'required'
-# as they can be determined post construction and can 
-# depend on each other.
-
-around [qw(name)] => sub {
-    my $orig = shift;
-    my $self = shift;
-
-    my $value = $self->$orig();
-    @_ and defined $value and croak "'name' is already set to $value";
-    $self->$orig(@_);
-};
-
-around [qw(version)] => sub {
-    my $orig = shift;
-    my $self = shift;
-
-    my $value = $self->$orig();
-    @_ and defined $value and croak "'version' is already set to $value";
-    $self->$orig(@_);
-};
-
-around [qw(id)] => sub {
-    my $orig = shift;
-    my $self = shift;
-
-    my $value = $self->$orig();
-    @_ and defined $value and croak "'id' is already set to $value";
-    $self->$orig(@_);
-};
-
+sub id {
+    return sprintf "%s-%s", $_[0]->name, $_[0]->version;
+}
 
 =head2 inheritance
 
@@ -368,14 +264,6 @@ has providers => (
     writer => '_set_providers',
 );
 
-has pending_providers => (
-    is => 'ro',
-    isa => 'HashRef',
-    default => sub => { {} },
-);
-
-no Mouse;
-
 =head2 data_providers
 
     my $providers = $runtime->data_providers;
@@ -483,7 +371,6 @@ sub task_providers {
     return wantarray
             ? @{$providers->{Task} ||=[]}
             :  ($providers->{Task}  ||=[]);
-
 }
 
 =head2 register_provider
@@ -506,84 +393,20 @@ None
 
 =cut
 
-sub _extract_requires {
-    my $type  = shift;
-    my $check = shift;
-    my %extract = ();
-
-    for my $key (keys %$check) {
-        if ($key =~ /^$type\.(\S+)/) {
-            my $param = shift;
-            $extract{$param} = $check->{$key};
-        }
-    }
-    return scalar keys %extract
-            ? \%extract
-            : undef;
-}
-
 sub register_provider {
     my $self     = shift;
     my $provider = shift;
     my $type     = $provider->type;
     
-    Debug "Attempting to register provider %s %s",
-          $provider->name,
-          $type;
+    Debug "Registering %s %s",
+          $type,
+          $provider->name;
 
-    my $requires  = $provider->requires;
-    
-    Debug "Provider has the following requirements %s",
-          Dump($requires);
-
-    my @runtime_requires;
-    my @provider_requires;
-
-    # collect any requirements
-    for (@$requires) {
-        if (my $requires = _extract_requires 'runtime', $_) {
-            push @runtime_requires, $requires;
-        }
-        if (my $requires = _extract_requires 'provider', $_) {
-            push @provider_requires, $requires;
-        }
-    }
-
-    my $runtime_ok = 0;
-
-    # check for runtime requirements
-    RUNTIME_REQUIRE:
-    for my $runtime_require (@$runtime_requires) {
-        for my $runtime ((blessed $self, @{[$self->inheritance]})) {
-            for my $key (keys %$runtime_require) {
-                if ($runtime->can($key) &&
-                    $runtime->$key() eq $runtime_require->{$key}) {
-                    delete $runtime_require;
-                }
-            }
-            if(scalar (keys %$runtime_require)) {
-                $runtime_ok++;
-                last RUNTIME_REQUIRE;
-            }
-        }
-    }
-
-    unless ($runtime_ok) {
-        warn "Runtime requirements %s not met for %s",
-              Dump($runtime_requires),
-              $provider->name;
-        return;
-    }
-
-    # check for provider requirements
-    for (@$provider_requires) {
-        
-
-    }
-
+    my $providers = $self->providers;
     $providers->{$type} ||= [];
     push @{$providers->{$type}}, $provider;
-    $provider;
+
+    return $provider;
 }
 
 sub find_provider {
@@ -598,8 +421,6 @@ sub find_provider {
     }
     return undef;
 }
-
-
 
 =head2 boot
 
@@ -644,7 +465,7 @@ sub _discover_providers {
     Debug "Plugins %s", dump($plugins);
 
     for (@$plugins) {
-        $self->register_provider($type => $_);
+        $self->register_provider($_);
     }
 }
 

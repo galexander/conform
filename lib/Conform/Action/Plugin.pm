@@ -4,11 +4,14 @@ use Mouse;
 extends 'Conform::Work::Plugin';
 
 use Storable qw(dclone);
+use Conform;
 use Conform::Debug qw(Trace Debug);
 use Data::Dump qw(dump);
 
 use Conform::Core qw();
 use Conform::Action;
+
+our $VERSION = $Conform::VERSION;
 
 sub import {
     my $package = shift;

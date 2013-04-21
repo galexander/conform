@@ -1,4 +1,3 @@
-#!perl
 use Test::More qw(no_plan);
 use strict;
 use FindBin;
@@ -12,6 +11,7 @@ my @methods = qw(new
                  prio
                  args
                  impl
+                 provider
                  execute
                  run
                  complete

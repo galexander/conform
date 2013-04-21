@@ -1,10 +1,10 @@
-package Conform::Task::Plugin;
+package Conform::Data::Plugin;
 use Mouse;
 
-extends 'Conform::Work::Plugin';
+extends 'Conform::Plugin';
 
 use Conform::Core qw();
-use Conform::Task;
+use Conform::Data;
 use Storable qw(dclone);
 use Conform::Debug qw(Trace Debug);
 use Data::Dump qw(dump);
@@ -28,7 +28,7 @@ sub factory {
         return $self->impl->(@_);
     };
 
-    return Conform::Task->new(name => $tag, impl => $work_impl, provider => $self);
+    return Conform::Data->new(name => $tag, impl => $work_impl, provider => $self);
 }
 
 1;

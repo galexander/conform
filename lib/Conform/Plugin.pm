@@ -4,29 +4,64 @@ package Conform::Plugin;
 
     Conform::Plugin
 
-=cut
+=head1  ABSTRACT
+
+    Base class for Conform::Plugin's
 
 =head1  SYNOPSIS
 
     use Conform::Plugin;
 
-    Id      ("My::Plugin::ID");
-    Name    ("My::Plugin");
-    Version ("1.2");
-
-    sub plugin_method
-        Attribute: {
+    sub method
+        Type: {
     }
+
+=head1  DESCRIPTION
+
+Conform::Plugin is the base class that ALL plugins should extend.
 
 =cut
 
 
 use Mouse;
-use Scalar::Util qw(refaddr);
+use Scalar::Util qw(refaddr weaken);
+use Data::Dump qw(dump);
+use Carp qw(croak);
+use Conform;
+use Conform::Debug qw(Debug);
 
-my %Id;
-my %Name;
-my %Version;
+our $VERSION = $Conform::VERSION;
+
+has 'name' => (
+    is => 'rw',
+    isa => 'Str',
+);
+
+has 'version' => (
+    is => 'rw',
+    isa => 'Str',
+);
+
+sub id {
+    my $self = shift;
+    return sprintf "%s-%s",
+                   $self->name,
+                   $self->version;
+}
+
+has 'impl' => (
+    is => 'rw',
+    isa => 'Coderef',
+);
+
+sub type {
+    my $self = shift;
+    my $class = blessed $self;
+    $class =~ /^Conform::(\S+)::Plugin/;
+    my $type = $1;
+    $type || croak "Unable to determine plugin type for $class";
+    $type;
+}
 
 sub import {
     my $caller = caller;
@@ -43,23 +78,31 @@ sub import {
     *{"${caller}\::FETCH_CODE_ATTRIBUTES"}
             = \&FETCH_CODE_ATTRIBUTES;
 
-    *{"${caller}\::Id"}         = \&Id;
-    *{"${caller}\::Name"}       = \&Name;
-    *{"${caller}\::Version"}    = \&Version;
-
-    my $identifier = $caller;
-    
-    # TODO make this work - setId, setName, setVersion on objects that this plugin spits out
-
-    *{"${caller}\::getId"}      = sub { _getId      ($identifier) };
-    *{"${caller}\::getName"}    = sub { _getName    ($identifier) };
-    *{"${caller}\::getVersion"} = sub { _getVersion ($identifier) };
-
     $_[0]->SUPER::import(@_);
 }
 
 
 has 'attr' => ( is => 'rw', isa => 'ArrayRef', default => sub { [] }  );
+
+sub extract_directives {
+    my $self       = shift;
+    my @search     = @_;
+    my @directives = ();
+    for my $arg (grep { ref $_ eq 'HASH' } @search) {
+        for my $key (keys %$arg) {
+            if ($key =~ /^:(\S+)/) {
+                push @directives, { $1 => $arg->{$key} };
+            } else {
+                if (ref $arg->{$key} eq 'HASH') {
+                    Debug "Searching deep %s", dump($arg->{$key});
+                    push @directives, $self->extract_directives ($arg->{$key});
+                }
+            }
+        }
+    }
+    return @directives;
+}
+
 
 sub get_attr {
     my $self = shift;
@@ -101,48 +144,7 @@ sub get_attrs {
             :\@attr;
 }
 
-
-sub Id {
-    my $caller = caller;
-    $Id{$caller} = shift;
-}
-
-sub _getId {
-    my $caller = shift;
-    return $Id{$caller} if defined $Id{$caller};
-    $caller;
-}
-
-sub Name {
-    my $caller = caller;
-    $Name{$caller} = shift;
-}
-
-sub _getName {
-    my $caller = shift;
-    return $Name{$caller} if defined $Name{$caller};
-    $caller =~ s/^Conform:://;
-    $caller;
-}
-
-sub Version {
-    my $caller = caller;
-    $Version{$caller} = shift;
-}
-
-sub _getVersion {
-    my $caller = shift;
-    return $Version{$caller} if defined $Version{$caller};
-
-    no strict 'refs';
-    if (defined ${"${caller}\::VERSION"}) {
-        return  ${"${caller}\::VERSION"};
-    }
-    return undef;
-}
-
-
-my %attrs = ();
+our %attrs;
 
 sub MODIFY_CODE_ATTRIBUTES {
     my ($package, $subref, @attrs) = @_;
@@ -156,4 +158,22 @@ sub FETCH_CODE_ATTRIBUTES {
     return @{$attrs || [] };
 }
 
+=head1  AUTHOR
+
+Gavin Alexander (gavin.alexander@gmail.com)
+
+=head1  COPYRIGHT
+
+Copyright 2012 (Gavin Alexander)
+
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
+
+The full text of the license can be found in the
+LICENSE file included with this module
+
+=cut
+
 1;
+# vi: set ts=4 sw=4:
+# vi: set expandtab:
