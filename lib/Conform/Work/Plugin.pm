@@ -35,6 +35,25 @@ sub import {
     __PACKAGE__->SUPER::import (package => $caller);
 }
 
+sub extract_directives {
+    my $self       = shift;
+    my @search     = @_;
+    my @directives = ();
+    for my $arg (grep { ref $_ eq 'HASH' } @search) {
+        for my $key (keys %$arg) {
+            if ($key =~ /^:(\S+)/) {
+                push @directives, { $1 => $arg->{$key} };
+            } else {
+                if (ref $arg->{$key} eq 'HASH') {
+                    Debug "Searching deep %s", dump($arg->{$key});
+                    push @directives, $self->extract_directives ($arg->{$key});
+                }
+            }
+        }
+    }
+    return @directives;
+}
+
 sub _args {
     my($params, $defaults) = @_;
     return undef unless $params;

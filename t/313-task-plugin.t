@@ -1,7 +1,7 @@
 #!perl
 # Tests for Conform::Task
 use strict;
-use Test::More tests => 11;
+use Test::More tests => 13;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -10,6 +10,8 @@ use lib "$FindBin::Bin/lib";
 use Conform;
 
 use_ok 'Conform::Task::Plugin';
+isa_ok 'Conform::Task::Plugin', 'Conform::Plugin';
+isa_ok 'Conform::Task::Plugin', 'Conform::Work::Plugin';
 is $Conform::Task::Plugin::VERSION, $Conform::VERSION, 'version OK';
 can_ok 'Conform::Task::Plugin', 'id';
 can_ok 'Conform::Task::Plugin', 'name';
