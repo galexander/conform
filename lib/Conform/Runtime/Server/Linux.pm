@@ -1,6 +1,6 @@
 package Conform::Runtime::Server::Linux;
 use strict;
-use Mouse;
+use Moose;
 use Conform::Logger qw($log);
 
 use Conform::Task::Plugin;

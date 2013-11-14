@@ -1,5 +1,5 @@
 package Conform::Data;
-use Mouse;
+use Moose;
 
 has 'name'    => ( is => 'rw', isa => 'Str' );
 has 'version' => ( is => 'rw', isa => 'Str' );

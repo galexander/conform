@@ -1,12 +1,12 @@
 package Conform::Task::Plugin;
-use Mouse;
+use Moose;
 
 extends 'Conform::Work::Plugin';
 
 use Conform::Core qw();
 use Conform::Task;
 use Storable qw(dclone);
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Data::Dump qw(dump);
 use Conform::Plugin;
 use Conform;
@@ -22,7 +22,7 @@ sub import {
 sub factory {
     my ($self, $agent, $tag, $args) = @_;
 
-    Trace;
+    trace;
 
     my $work_impl = sub {
         return $self->impl->(@_);

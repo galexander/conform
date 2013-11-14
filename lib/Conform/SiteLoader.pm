@@ -1,6 +1,6 @@
 package Conform::SiteLoader;
 use strict;
-use Mouse;
+use Moose;
 use Carp qw(croak);
 
 use Conform::Logger;

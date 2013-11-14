@@ -1,4 +1,5 @@
 package Conform::Queue;
+
 =head1 NAME
 
 Conform::Queue
@@ -21,11 +22,11 @@ Conform::Queue
 
 =head1 DESCRIPTION
 
-Generic FIFO queue to hold L<Conform::Action>'s
+Generic FIFO queue to track L<Conform::Work>
 
 =cut
 
-use Mouse;
+use Moose;
 use Scalar::Util qw(refaddr);
 
 =head1 METHODS
@@ -52,6 +53,7 @@ has 'list' => (is =>'rw', isa => 'ArrayRef', default => sub {[]});
 sub enqueue {
     my $self   = shift;
     my $object = shift;
+
     my $list   = $self->list;
     if ($object->can('prio')) {
         for (my $i = 0; $i < scalar @$list; $i++) {

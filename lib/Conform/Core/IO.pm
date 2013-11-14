@@ -141,8 +141,8 @@ sub slurp_file {
     my $filename = shift;
     return
         $filename =~ m{^https?://}
-            ? slurp_http $filename, @_
-            : slurp_file $filename, @_;
+            ? Conform::Core::IO::HTTP::slurp_http ($filename, @_)
+            : Conform::Core::IO::File::slurp_file ($filename, @_);
 }
 
 =item B<safe_write>, B<safe_write_file>
@@ -263,10 +263,9 @@ See L<Conform::Core::IO::File::dir_install>, L<Conform::Core::IO::HTTP::dir_inst
 =cut
 
 sub dir_install {
-    my ($dirname, $source) = @_;
-    return $dirname =~ m{^http://}
-            ? Conform::Core::IO::HTTP::dir_install_http($dirname, $source, @_)
-            : Conform::Core::IO::File::dir_install($dirname, $source, @_);
+    return $_[0] =~ m{^http://}
+            ? Conform::Core::IO::HTTP::dir_install_http(@_)
+            : Conform::Core::IO::File::dir_install(@_);
 }
 
 =item B<symlink_check>

@@ -1,13 +1,13 @@
 package Conform::Work;
-use Mouse;
+use Moose;
 
 use Data::Dump qw(dump);
 use Scalar::Util qw(blessed);
+use Storable qw(dclone);
 use Carp qw(croak);
 
 use Conform;
-use Conform::Logger qw($log);
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice warn fatal);
 
 use constant MIN_PRIO     => 100;
 use constant LOW_PRIO     => 75;
@@ -21,7 +21,7 @@ our $VERSION = $Conform::VERSION;
 
 =head1  NAME
 
-Conform::Work - Descrete unit of work to be run by a conform agent.
+Conform::Work - Discrete unit of work to be run by a conform agent.
 
 
 =head1  SYNSOPSIS
@@ -49,12 +49,13 @@ Conform::Work - Descrete unit of work to be run by a conform agent.
     $job->prio(10);
     my $prio = $job->prio;
 
+   
 =head1  DESCRIPTION
 
 Conform::Work is an abstract class to be extended.
 
 At its core Conform::Work is A job, or unit of work to be executed by a 
-conform agent as specified by a conform node definition.
+conform agent as specified by a conform machine definition.
 
 Conform::Work is a proxy for plugins, provided by L<Conform::Action>'s
 and L<Conform::Task>'s.
@@ -91,12 +92,12 @@ sub BUILD {
     my $attr       = $self->attr;
     my $directives = $self->directives;
 
-    Debug "attr = @{[dump($attr)]}";
-    Debug "directives = @{[dump($directives)]}";
+    debug "attr = @{[dump($attr)]}";
+    debug "directives = @{[dump($directives)]}";
 
     $self->merge_directives(@$attr, @$directives);
 
-    Debug "dependencies = %s\n", $self->dependencies;
+    debug "dependencies = %s\n", $self->dependencies;
 
     $self;
 }
@@ -257,13 +258,13 @@ has 'locked' => (
 sub execute {
     my $self     = shift;
 
-    Debug "Executing Work (id=%s,name=%s)",
+    debug "Executing Work (id=%s,name=%s)",
                 $self->id,
                 $self->name;
 
     my @result   = $self->run(@_);
 
-    Debug "Work (id=%s,name=%s) returned %s",
+    debug "Work (id=%s,name=%s) returned %s",
           $self->id,
           $self->name,
           dump(\@result);
@@ -283,9 +284,9 @@ sub execute {
 
 =cut
 
-sub satisfies { Trace;
+sub satisfies { trace;
     my $self       = shift;
-    my $dependency = shift;
+    my $dependency = dclone shift;
 
     if (ref $dependency eq 'HASH') {
 
@@ -294,26 +295,29 @@ sub satisfies { Trace;
             if ($check =~ /^\.(\S+)/) {
                 my $param = $1;
 
-                if ($self->can($param)
-                    && defined $self->$param()
-                    && ($dependency->{$check} eq $self->$param())) {
+                if ($self->can($param) && defined $self->$param()) {
 
-                    Debug "Work (id=%s,name=%s) satisfies dependency %s=%s",
-                          $self->id,
-                          $self->name,
-                          $check,
-                          dump($dependency->{$check});
+                    if ($dependency->{$check} eq '+' ||
+                        $dependency->{$check} eq '*' ||
+                        ($dependency->{$check} eq $self->$param())) {
 
-                    delete $dependency->{$check};
+                        debug "Work (id=%s,name=%s) satisfies dependency %s=%s",
+                              $self->id,
+                              $self->name,
+                              $check,
+                              dump($dependency->{$check});
+
+                        delete $dependency->{$check};
+                    }
                 }
             }
         }
 
         if (keys %$dependency) {
-            Debug "Unmet dependencies @{[ dump ($dependency) ]}";
+            debug "Unmet dependencies @{[ dump ($dependency) ]}";
             return 0;
         } else {
-            Debug "All dependencies met";
+            debug "All dependencies met";
             return 1;
         }
     }
@@ -337,15 +341,21 @@ sub merge_directives {
         for my $keyword (keys %hash) {
             my $arg    = $hash{$keyword};
             my $method = $hash{$keyword} || $keyword;
+#TODO: investigate
             if ($self->can($method) && defined $arg) {
                 $self->$method($arg);
+            }
+            if ($self->can($keyword)) {
+                $self->$keyword($arg);
             }
 
             if ($keyword eq 'depend') {
                 my $dependencies = $self->dependencies;
                 if ($arg =~ /^(\S+?)(?:\[(.*)\])$/) {
+                    my $name = $1;
+                    my $id   = $2;
                     push @$dependencies,
-                            { '.name' => $1, '.id' => $2 };
+                            { '.name' => $name, '.id' => $id };
                 }
             }
         }
@@ -368,7 +378,7 @@ L<conform> L<Conform::Action> L<Conform::Task>
 
 =item
 
-Maybe make this a 'Mouse;:Role' and create  'Conform::Job' abstract
+Maybe make this a 'Moose::Role' and create  'Conform::Job' abstract
 class and move the stateful functionality to it.
 
 =item
@@ -399,3 +409,4 @@ LICENSE file included with this module
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
+

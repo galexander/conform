@@ -1,12 +1,11 @@
 package Conform::Site;
 use strict;
-use Mouse;
+use Moose;
 use Safe;
 use Carp qw(croak);
-use Conform::Debug qw(Debug Trace);
 use Data::Dump qw(dump);
 
-use Conform::Logger qw($log);
+use Conform::Logger qw($log trace debug notice fatal);
 
 =head1  NAME
 
@@ -65,15 +64,14 @@ sub BUILD {
 
 sub init {
     my $self = shift;
-    Debug "%s->init", ref $self;
+    debug "%s->init", ref $self;
 
-    my $path = $self->uri;
-
-    my $files = $self->dir_list($path);
-    
-    $self->root([ map { s!^.*/!!; $_ } @$files ]);
-
-    $self->_load_nodes;
+    if (my $path = $self->uri) {
+        my $path = $self->uri;
+        my $files = $self->dir_list($path);
+        $self->root([ map { s!^.*/!!; $_ } @$files ]);
+        $self->_load_nodes;
+    }
 }
 
 =head2  traverse
@@ -87,13 +85,13 @@ sub _traverse {
     $seen ||= {};
 
     if($seen->{$key}++) {
-        $log->warn("seen key $key");
+        $log->debug("seen key $key");
         return;
     }
 
     my $node = $nodes->{$key};
     if(!defined $node) {
-        Debug "key ($key) not found";
+        debug "key ($key) not found";
         return;
     }
 
@@ -126,11 +124,11 @@ sub traverse {
         croak "$from not found in \$site->@{[$self->uri]}"
             unless exists $nodes->{$from};
 
-        Debug "Traversing nodes from $from";
+        debug "Traversing nodes from $from";
         _traverse $nodes, $from, $code, {};
 
     } else {
-        Debug "Traversing ALL nodes";
+        debug "Traversing ALL nodes";
         for my $node (keys %$nodes) {
             $self->traverse($from, $code);
         }
@@ -148,13 +146,13 @@ sub _merge_nodes {
     my $from = shift;
     my $to   = shift;
 
-    Debug "Merging nodes %d -> %d",
+    debug "Merging nodes %d -> %d",
           scalar keys %$from,
           scalar keys %$to;
 
     @{$to}{keys %$from} = values %$from;
 
-    Debug "Merged = @{[dump([keys %$from])]}";
+    debug "Merged = @{[dump([keys %$from])]}";
 }
 
 sub _load_nodes {
@@ -199,15 +197,15 @@ sub _load_nodes_perl {
         no strict 'refs';
         my $ns = $safe->root;
         my $nodes = \%{"${ns}\::nodes"};
-        Debug "Nodes are @{[ dump $nodes ]}";
+        debug "Nodes are @{[ dump $nodes ]}";
 
         unless (ref $nodes and ref $nodes eq 'HASH') {
-            Debug "No %nodes expicitly set in $path - checking return value";
+            debug "No %nodes expicitly set in $path - checking return value";
             if (ref $return
                     and ref $return  eq 'HASH'
                     and exists $return->{nodes}) {
 
-                Debug "@{[ dump $return->{nodes} ]}";
+                debug "@{[ dump $return->{nodes} ]}";
 
                 return $return->{nodes};
             }
@@ -231,3 +229,4 @@ Gavin Alexander (gavin.alexander@gmail.com)
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
+

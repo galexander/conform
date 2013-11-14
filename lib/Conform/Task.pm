@@ -1,8 +1,7 @@
 package Conform::Task;
-use Mouse;
+use Moose;
 use Data::Dump qw(dump);
-use Conform::Logger qw($log);
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Scalar::Util qw(blessed);
 
 extends 'Conform::Work';
@@ -40,10 +39,10 @@ sub BUILD {
 
 =cut
 
-sub run { Trace;
+sub run { trace;
     my $self     = shift;
 
-    Debug "Executing Task (id=%s,name=%s)",
+    debug "Executing Task (id=%s,name=%s)",
           $self->id,
           $self->name;
 
@@ -51,7 +50,7 @@ sub run { Trace;
 
     my @result   = $function->($self, @_);
 
-    Debug "Task (id=%s,name=%s,args=%s) returned %s",
+    debug "Task (id=%s,name=%s,args=%s) returned %s",
           $self->id,
           $self->name,
           dump(\@result);
@@ -87,3 +86,4 @@ LICENSE file included with this module
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
+

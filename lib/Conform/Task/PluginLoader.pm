@@ -1,13 +1,13 @@
 package Conform::Task::PluginLoader;
-use Mouse;
-use Conform::Debug qw(Trace Debug);
+use Moose;
 use Data::Dump qw(dump);
+use Conform::Logger qw($log debug trace warn notice fatal);
 
 with 'Conform::PluginLoader';
 
 sub register {
     my $self   = shift;
-    Debug "Register %s", dump(\@_);
+    debug "Register %s", dump(\@_);
     my %args = @_;
     my ($agent, $plugin, $name, $id, $version, $impl, $attr)
         = @args{qw(agent plugin name id version impl attr)};
@@ -15,9 +15,9 @@ sub register {
     $attr ||= [];
     
 
-    Debug "$plugin, $name, $id, $version, $attr";
+    debug "$plugin, $name, $id, $version, $attr";
 
-    Trace;
+    trace;
 
     my $object = 
         $plugin->new('agent'    => $agent,
@@ -27,7 +27,7 @@ sub register {
                      'impl'     => $impl);
 
     
-    Debug "Object %s", dump($object);
+    debug "Object %s", dump($object);
 
     my $plugins = $self->plugins;
     $plugins ||= [];

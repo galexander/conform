@@ -1,11 +1,10 @@
 package Conform::Agent;
-use Mouse;
+use Moose;
 use Carp qw(croak);
 use Data::Dump qw(dump);
 use Storable qw(dclone);
 
-use Conform::Logger qw($log);
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice note warn fatal);
 use Conform::Runtime;
 use Conform::Site;
 use Conform::Scheduler;
@@ -104,6 +103,12 @@ has 'scheduler' => (
     default => sub { Conform::Scheduler->new(executor => $_[0]) },
 );
 
+has 'exclude' => (
+    is => 'rw',
+    isa => 'ArrayRef',
+    default => sub { [] },
+);
+
 =head2  init
 
 =cut
@@ -111,7 +116,7 @@ has 'scheduler' => (
 sub init {
     my $self = shift;
 
-    Trace;
+    trace;
     
     $self->runtime->boot;
     $self->compile;
@@ -136,9 +141,24 @@ sub nodes {
 sub schedule {
     my ($self, $name, $work) = @_;
 
-    Trace "%s %s %s", $name, $work;
+    trace "%s %s %s", $name, $work;
 
-    Debug("scheduling work @{[$name]} -> @{[ dump($work) ]}");
+    my $excluded = $self->exclude;
+    for my $exclude (@$excluded) {
+        my $dependency = {};
+        $exclude =~ /^(\w+)(?:\[([^\]]+)\])?/;
+        my $name = $1;
+        my $id   = $2;
+        $dependency->{'.name'} = $name if defined $name;
+        $dependency->{'.id'}   = $id   if defined $id;
+
+        if ($work->satisfies($dependency)) {
+            note "excluding %s %s", $name, $work->id;
+            return;
+        }
+    }
+
+    debug("scheduling work @{[$name]} -> @{[ dump($work) ]}");
 
     $self->scheduler->schedule($work);
 }
@@ -146,7 +166,7 @@ sub schedule {
 sub scheduled {
     my ($self, $work) = @_;
     
-    Trace "%s", dump($work);
+    trace "%s", dump($work);
 
     return $self->scheduler->scheduled($work);
 
@@ -156,7 +176,7 @@ sub merge_node_changes {
     my $self = shift;
     my ($new, $cur) = @_;
 
-    Trace;
+    trace;
 
     my @actions = ();
 
@@ -192,7 +212,7 @@ sub merge_node_changes {
 
     my @isa = ref $new_isa eq 'ARRAY'
                 ? @$new_isa
-                : [keys %$new_isa];
+                : keys %$new_isa;
 
     for my $isa (@isa) {
         unless (_contains(
@@ -219,7 +239,7 @@ sub merge_node_changes {
 sub execute {
     my ($self, $work) = @_;
 
-    Trace;
+    trace;
 
     no warnings 'once';
     local $Storable::Deparse = 1;
@@ -244,13 +264,13 @@ sub identify_work {
     my $value = shift;
     my $provider = $self->runtime->find_provider(Action => $tag);
     if ($provider) {
-        Debug "found provider %s for %s with %s tag = %s",
+        debug "found provider %s for %s with %s tag = %s",
                dump($provider),
                $name,
                 dump($value),
                $tag;
 
-        my @actions  = $provider->factory($self, $tag,  $value);
+        my @actions  = $provider->factory($self, $tag, $value);
 
         $self->schedule($tag, $_)
             for @actions;
@@ -260,11 +280,11 @@ sub identify_work {
                    :\@actions;
     }
 
-    Debug "action for $tag not found - checking task providers";
+    debug "action for $tag not found - checking task providers";
 
     $provider = $self->runtime->find_provider(Task => $tag);
     if ($provider) {
-        Debug "found provider %s for %s with %s tag = %s",
+        debug "found provider %s for %s with %s tag = %s",
                dump($provider),
                $name,
                 dump($value),
@@ -312,7 +332,7 @@ sub extract_node_work {
     my $self = shift;
     my $node = shift;
 
-    Trace;
+    trace;
 
     $self->site->traverse
             ($node, sub { $self->extract_work(@_) });
@@ -321,7 +341,7 @@ sub extract_node_work {
 sub compile {
     my $self = shift;
     
-    Trace;
+    trace;
 
     $self->extract_node_work($self->iam);
 
@@ -330,9 +350,9 @@ sub compile {
 sub conform {
     my $self = shift;
 
-    Trace;
+    trace;
 
-    Debug "Scheduler has %d jobs", $self->scheduler->pending->size;
+    debug "Scheduler has %d jobs", $self->scheduler->pending->size;
 
     while ($self->scheduler->has_work) {
         $self->scheduler->run();
@@ -341,10 +361,10 @@ sub conform {
     warn "scheduler has @{[ $self->scheduler->waiting ]} waiting jobs"
             if $self->scheduler->waiting->size;
 
-    Debug "Scheduler has %d pending jobs",   $self->scheduler->pending->size;
-    Debug "Scheduler has %d waiting jobs",   $self->scheduler->waiting->size;
-    Debug "Scheduler has %d completed jobs", $self->scheduler->completed->size;
-    Debug "Scheduler has %d runnable jobs",  $self->scheduler->runnable->size;
+    debug "Scheduler has %d pending jobs",   $self->scheduler->pending->size;
+    debug "Scheduler has %d waiting jobs",   $self->scheduler->waiting->size;
+    debug "Scheduler has %d completed jobs", $self->scheduler->completed->size;
+    debug "Scheduler has %d runnable jobs",  $self->scheduler->runnable->size;
 
 }
 
@@ -360,3 +380,4 @@ Gavin Alexander (gavin.alexander@gmail.com)
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
+

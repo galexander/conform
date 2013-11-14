@@ -1,9 +1,8 @@
 package Conform::Action;
-use Mouse;
+use Moose;
 use Data::Dump qw(dump);
 use Conform;
-use Conform::Logger qw($log);
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice fatal);
 
 our $VERSION = $Conform::VERSION;
 
@@ -34,9 +33,9 @@ use Conform::Action;
 sub run {
     my $self     = shift;
 
-    Trace;
+    trace;
 
-    Debug "Executing Action (id=%s,name=%s,args=%s)",
+    debug "Executing Action (id=%s,name=%s,args=%s)",
           $self->id,
           $self->name,
           dump($self->args);
@@ -47,7 +46,7 @@ sub run {
                                $self,
                                @_);
 
-    Debug "Action (id=%s,name=%s,args=%s) returned %s",
+    debug "Action (id=%s,name=%s,args=%s) returned %s",
           $self->id,
           $self->name,
           dump($self->args),

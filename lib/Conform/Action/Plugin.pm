@@ -1,11 +1,11 @@
 package Conform::Action::Plugin;
-use Mouse;
+use Moose;
 
 extends 'Conform::Work::Plugin';
 
 use Storable qw(dclone);
 use Conform;
-use Conform::Debug qw(Trace Debug);
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Data::Dump qw(dump);
 
 use Conform::Core qw();
@@ -24,7 +24,7 @@ has 'arg_spec'  => ( is => 'rw');
 
 sub _get_positional_args {
     my ($name, $args, $spec) = @_;
-    Debug "_get_positional_args %s %s",
+    debug "_get_positional_args %s %s",
           dump($args),
           dump($spec);
 
@@ -38,7 +38,7 @@ sub _get_positional_args {
                 unless defined $arg;
         }
         if ($check->{type}) {
-            die "$name:$check->{arg} invalid type @{[ ref $arg ]}"
+            die "$name:$check->{arg} invalid type @{[ ref $arg || $arg ]}"
                 if defined $arg and
                        ref $arg ne $check->{type};
 
@@ -55,7 +55,7 @@ sub _get_positional_args {
 
 sub _get_named_args {
     my ($name, $args, $spec) = @_;
-    Debug "_get_named_args %s %s",
+    debug "_get_named_args %s %s",
           dump($args),
           dump($spec);
 
@@ -64,7 +64,7 @@ sub _get_named_args {
     my %formatted = ();
     for my $check (@$spec) {
         my $arg = $args->{$check->{arg}};
-        Debug "Arg = @{[dump $arg]}";
+        debug "Arg = @{[dump $arg]}";
         if ($check->{required}) {
             die "$name:missing required arg '$check->{arg}'"
                 unless defined $arg;
@@ -82,7 +82,7 @@ sub _get_named_args {
             unless exists $formatted{_id};
         $formatted{$check->{arg}} = $arg;
     }
-    Debug "formatted = @{[ dump \%formatted ]}";
+    debug "formatted = @{[ dump \%formatted ]}";
     return \%formatted;
 
 }
@@ -95,9 +95,11 @@ sub _extract_directives {
         for my $key (keys %$arg) {
             if ($key =~ /^:(\S+)/) {
                 push @directives, { $1 => $arg->{$key} };
+            } elsif ($key =~ /^prio/) {
+                push @directives, { prio => $arg->{prio} };
             } else {
                 if (ref $arg->{$key} eq 'HASH') {
-                    Debug "Searching deep %s", dump($arg->{$key});
+                    debug "Searching deep %s", dump($arg->{$key});
                     push @directives, _extract_directives ($arg->{$key});
                 }
             }
@@ -109,7 +111,7 @@ sub _extract_directives {
 sub factory {
     my ($self, $agent, $tag, $args) = @_;
 
-    Trace;
+    trace;
 
     my $name = $self->name;
 
@@ -205,7 +207,8 @@ sub factory {
         my @actions = ();
         for my $key (keys %$args) {
             push @actions,
-                 Conform::Action->new('args'       => {$key => $args->{$key}},
+                 Conform::Action->new('id'         => $key,
+                                      'args'       => {$key => $args->{$key}},
                                       'name'       => $name,
                                       'provider'   => $self,
                                       'impl'       => $action_impl,

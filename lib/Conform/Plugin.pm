@@ -23,12 +23,12 @@ Conform::Plugin is the base class that ALL plugins should extend.
 =cut
 
 
-use Mouse;
+use Moose;
 use Scalar::Util qw(blessed reftype refaddr weaken);
 use Data::Dump qw(dump);
 use Carp qw(croak);
 use Conform;
-use Conform::Debug qw(Debug);
+use Conform::Logger qw($log trace debug notice warn fatal);
 
 our $VERSION = $Conform::VERSION;
 

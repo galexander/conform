@@ -1,5 +1,5 @@
 package Conform::Test::Runtime;
-use Mouse;
+use Moose;
 
 use Conform;
 our $VERSION = $Conform::VERSION;

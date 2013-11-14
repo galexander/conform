@@ -1,5 +1,5 @@
 package Conform::ExecutionContext;
-use Mouse;
+use Moose;
 
 our @stack = ();
 
@@ -32,3 +32,4 @@ sub current {
 
 
 1;
+

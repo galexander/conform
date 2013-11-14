@@ -11,7 +11,7 @@ package Conform::Runtime;
 =head1  SYNOPSIS
 
     package Conform::Runtime::Special;
-    use Any::Mouse;
+    use Any::Moose;
 
     our $VERSION = 0.1;
     
@@ -26,12 +26,12 @@ All runtimes must extend Conform::Runtime.
 
 =cut
 
-use Mouse;
-use Mouse::Util::TypeConstraints;
+use Moose;
+use Moose::Util::TypeConstraints;
 use Scalar::Util qw(blessed);
 use Data::Dumper;
 use Data::Dump qw(dump);
-use Conform::Debug qw(Debug Trace);
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Carp qw(croak);
 use Conform;
 
@@ -47,19 +47,12 @@ our $VERSION = $Conform::VERSION;
 
 None
 
-=over
+=cut
 
-sub BUILD {
-    my $self = shift;
-    my $name    = $self->name;
-    my $version = $self->version;
-    my $id      = $self->id;
-
-    die "\$VERSION not set for @{[$name]}"
-        unless defined $version;
-
-    $self;
-}
+has iam => (
+    is => 'rw',
+    isa => 'Str',
+);
 
 =head2 name
 
@@ -398,7 +391,7 @@ sub register_provider {
     my $provider = shift;
     my $type     = $provider->type;
     
-    Debug "Registering %s %s",
+    debug "Registering %s %s",
           $type,
           $provider->name;
 
@@ -444,11 +437,11 @@ sub _discover_providers {
     my $self = shift;
     my $type = shift;
 
-    Trace;
+    trace;
 
     my $package = blessed $self;
 
-    Debug "Discovering %s provider for %s",
+    debug "Discovering %s provider for %s",
                 lc $type,
                 $package; 
     
@@ -458,11 +451,11 @@ sub _discover_providers {
 
     $loader = $loader->new(plugin_type => $type);
 
-    Debug "%s", dump ($loader);
+    debug "%s", dump ($loader);
 
     my $plugins = $loader->get_plugins(search_path => [ $package, @{$self->inheritance} ]);
 
-    Debug "Plugins %s", dump($plugins);
+    debug "Plugins %s", dump($plugins);
 
     for (@$plugins) {
         $self->register_provider($_);
@@ -472,25 +465,25 @@ sub _discover_providers {
 sub boot {
     my $self = shift;
 
-    Trace;
+    trace;
 
-    Debug "Booting runtime %s", $self->id;
+    debug "Booting runtime %s", $self->id;
 
     my $package = blessed $self;
 
     my @runtimes = @{$self->inheritance};
     
-    Debug "Runtime Inheritance Chain = %s", dump(\@runtimes);
+    debug "Runtime Inheritance Chain = %s", dump(\@runtimes);
     
-    Debug "Loading action providers for %s", $package;
+    debug "Loading action providers for %s", $package;
     $self->_discover_providers
         ('Action');
 
-    Debug "Loading task providers for %s",  $package;
+    debug "Loading task providers for %s",  $package;
     $self->_discover_providers
         ('Task');
 
-    Debug "Loading data providers for %s",  $package;
+    debug "Loading data providers for %s",  $package;
     $self->_discover_providers
         ('Data');
 

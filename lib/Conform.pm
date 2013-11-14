@@ -1,9 +1,9 @@
 package Conform;
-use Mouse;
+use Moose;
 
 our $VERSION = 0.01;
 
-=head1	NAME
+=head1  NAME
 
 Conform
 
@@ -11,17 +11,17 @@ Conform
 
 0.01
 
-=head1	SYNSOPSIS
+=head1  SYNSOPSIS
 
 use Conform;
 
-=head1	DESCRIPTION
+=head1  DESCRIPTION
 
 Conform - configuration management and deployment framework
 
 =cut
 
-=head1	AUTHOR
+=head1  AUTHOR
 
 Gavin Alexander (gavin.alexander@gmail.com)
 
@@ -41,3 +41,4 @@ LICENSE file included with this module
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:
+

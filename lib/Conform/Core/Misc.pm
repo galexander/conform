@@ -44,7 +44,7 @@ use LWP::UserAgent;
 use HTTP::Request;
 use HTTP::Date qw( time2str );
 use Text::Template;
-use Conform::Debug qw(Debug Trace);
+use Conforn::Logger qw($log debug trace warn notice fatal);
 use Conform::Core::IO::Command qw(command);
 use Conform::Core::IO::File qw(dir_install safe_write_file safe);
 

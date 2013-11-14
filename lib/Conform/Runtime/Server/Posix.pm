@@ -1,6 +1,6 @@
 package Conform::Runtime::Server::Posix;
 use strict;
-use Mouse;
+use Moose;
 use Net::Domain ();
 use POSIX ();
 use Conform::Plugin;
@@ -37,15 +37,15 @@ sub uname {
     return \%uname;
 }
 
-sub posix_sysname { return uname()->{sysname};      }
+sub posix_sysname  { return uname()->{sysname};  }
 
-sub posix_nodename { return uname()->{nodename};    }
+sub posix_nodename { return uname()->{nodename}; }
 
-sub posix_release { return uname()->{release};      }
+sub posix_release  { return uname()->{release};  }
 
-sub posix_version { return uname()->{version};      }
+sub posix_version  { return uname()->{version};  }
 
-sub posix_machine { return uname()->{machine};      }
+sub posix_machine  { return uname()->{machine};  }
 
 sub arch { posix_machine; } 
 

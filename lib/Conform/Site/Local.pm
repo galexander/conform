@@ -1,8 +1,8 @@
 package Conform::Site::Local;
 use strict;
-use Mouse;
+use Moose;
 use Carp qw(croak);
-use Conform::Debug qw(Debug Trace);
+use Conform::Logger qw($log trace debug notice fatal);
 
 extends 'Conform::Site';
 with    'Conform::Site::API';
@@ -34,7 +34,7 @@ sub dir_list {
     my $self = shift;
     my $path = shift;
 
-    Debug "%s->dir_list(%s)", ref $self, $path;
+    debug "%s->dir_list(%s)", ref $self, $path;
 
     my $dir = IO::Dir->new($path)
                 or die "$!";
@@ -54,7 +54,7 @@ sub file_open {
     my $self = shift;
     my $file = shift;
 
-    Debug "%s->file_open(%s)", ref $self, $file;
+    debug "%s->file_open(%s)", ref $self, $file;
 
     my $fh = IO::File->new($file)
                 or die "$!";
@@ -66,7 +66,7 @@ sub file_close {
     my $self = shift;
     my $fh   = shift;
 
-    Debug "%s->file_close(%s)", ref $self, $fh;
+    debug "%s->file_close(%s)", ref $self, $fh;
 
     $fh->close
         if $fh and ref $fh and $fh->can('close');
@@ -76,7 +76,7 @@ sub file_read {
     my $self = shift;
     my $file = shift;
 
-    Debug "%s->file_read(%s)", ref $self, $file;
+    debug "%s->file_read(%s)", ref $self, $file;
 
     my $fh = $self->file_open($file);
     

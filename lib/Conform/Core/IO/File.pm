@@ -74,14 +74,13 @@ use LWP::UserAgent;
 use HTTP::Request;
 use HTTP::Date qw( time2str );
 use Text::Template;
-use Conform::Debug qw(Debug);
 use Conform::Core qw(
                     action
                     timeout
                     safe
                     );
 
-use Conform::Logger qw($log);
+use Conform::Logger qw($log trace debug notice warn fatal);
 
 use Conform::Core::IO::Command qw(command find_command);
 
@@ -132,7 +131,7 @@ my $CYAN   = "\e[36m";
 my $ci = find_command 'ci';
 my $co = find_command 'co';
 my $have_rcs = $ci && $co;
-Debug "Couldn't find 'ci', not using 'rcs' for file modifications" unless $have_rcs;
+debug "Couldn't find 'ci', not using 'rcs' for file modifications" unless $have_rcs;
 
 my $intest = $ENV{'HARNESS_VERSION'} || $ENV{'HARNESS_ACTIVE'};
 
@@ -1779,13 +1778,12 @@ sub dir_install {
         next if /^\.\.?$/;
         if ( not defined $filter or $filter->( $dirname, $source, $_ ) ) {
             if ( -d "$source/$_" ) {
-                $changed += dir_install("$dirname/$_", "$source/$_", undef,
-                  $flags, @expr)
+                
+                $changed += dir_install("$dirname/$_", "$source/$_", undef, $flags, @expr)
                   unless /^(CV|RC)S$/;
             }
             else {
-                $changed += file_install("$dirname/$_", "$source/$_", undef,
-                  $flags, @expr);
+                $changed += file_install("$dirname/$_", "$source/$_", undef, $flags, @expr);
             }
         }
     }

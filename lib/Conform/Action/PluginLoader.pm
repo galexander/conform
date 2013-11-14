@@ -1,6 +1,6 @@
 package Conform::Action::PluginLoader;
-use Mouse;
-use Conform::Debug qw(Trace Debug);
+use Moose;
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Data::Dump qw(dump);
 
 with 'Conform::PluginLoader';
@@ -8,7 +8,7 @@ with 'Conform::PluginLoader';
 sub _find_attr {
     my ($name, $attr) = @_;
 
-    Trace;
+    trace;
 
     for my $attribute (@{$attr ||[]}) {
         my ($key, $value) = ref $attribute eq 'HASH'
@@ -24,7 +24,7 @@ sub _find_attr {
 sub _find_attrs {
     my ($name, $attr) = @_;
 
-    Trace;
+    trace;
 
     my @attr = ();
     for (@{$attr || []}) {
@@ -74,7 +74,7 @@ sub _parse_arg_spec {
 
 sub register {
     my $self   = shift;
-    Debug "Register %s", dump(\@_);
+    debug "Register %s", dump(\@_);
     my %args = @_;
     my ($agent, $plugin, $name, $id, $version, $impl, $attr)
         = @args{qw(agent plugin name id version impl attr)};
@@ -82,22 +82,22 @@ sub register {
     $attr ||= [];
     
 
-    Debug "$plugin, $name, $id,  $version, $attr";
+    debug "$plugin, $name, $id,  $version, $attr";
 
-    Trace;
+    trace;
 
     if (my $value = _find_attr 'Action', $attr) {
-        Debug "override 'Action' ($name -> $value)";
+        debug "override 'Action' ($name -> $value)";
         $name = $value;
     }
 
     if (defined(my $value = _find_attr 'Version', $attr)) {
-        Debug "override 'Version' ($version -> $value)";
+        debug "override 'Version' ($version -> $value)";
         $version = $value;
     }
 
     if (my $value = _find_attr 'Id', $attr) {
-        Debug "override 'Id' ($id => $value)";
+        debug "override 'Id' ($id => $value)";
         $id = $value;
     }
     
@@ -121,7 +121,7 @@ sub register {
                      'arg_spec' => $arg_spec);
 
     
-    Debug "Object %s", $object;
+    debug "Object %s", $object;
 
     my $plugins = $self->plugins;
     $plugins ||= [];

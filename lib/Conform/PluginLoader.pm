@@ -1,10 +1,9 @@
 package Conform::PluginLoader;
-use Mouse::Role;
-use Conform::Logger qw($log);
+use Moose::Role;
+use Conform::Logger qw($log trace debug warn notice fatal);
 use Data::Dump qw(dump);
 use attributes;
 use Module::Pluggable;
-use Conform::Debug qw(Trace Debug);
 
 =head1  NAME
 
@@ -35,7 +34,7 @@ sub get_plugin_type {
     my $self = shift;
     my $type = $self->plugin_type;
 
-    Trace;
+    trace;
 
     unless ($type) {
         my $class = ref $self;
@@ -50,7 +49,7 @@ sub plugin_finder {
     my $self = shift;
     my $type = $self->get_plugin_type;
 
-    Trace;
+    trace;
 
     my %args = @_;
     my @search_path = ( "Conform::${type}" );
@@ -97,7 +96,7 @@ sub plugin {
     my $class  = ref $self;
     my $source = shift;
 
-    Trace;
+    trace;
 
     my $plugin = $source;
     my $plugin_type = sprintf "Conform::%s::Plugin", $self->get_plugin_type;
@@ -105,6 +104,7 @@ sub plugin {
     die "$@" if $@;
 
     $log->debug("Plugging in $plugin_type from $source");
+    # debug("Plugging in $plugin_type from $source");
 
     $source =~ s/::/\//g;
     $source.= '.pm'
@@ -118,7 +118,7 @@ EOPLUGIN
             die $err;
         }
 
-        Trace "evaluated %s %s", $source, $result;
+        trace "evaluated %s %s", $source, $result;
 
         if (UNIVERSAL::isa($plugin, $plugin_type)) {
             (my $name = $source) =~ s!^.*/(\S+)\.(\S+)?!$1!;
@@ -130,7 +130,7 @@ EOPLUGIN
         sub _get_type_names {
             my ($type, $field, @list) = @_;
 
-            Trace "%s %s %s", $type, $field, dump(\@list);
+            trace "%s %s %s", $type, $field, dump(\@list);
 
             my @names = ();
 
@@ -169,12 +169,13 @@ EOPLUGIN
 
             for my $name (_get_type_names $type, $field, @attr) {
                 $log->debugf("%s::%s is a '%s'", $plugin, $name, $type);
+                debug(sprintf "%s::%s is a '%s'", $plugin, $name, $type);
 
                 $self->register(
                         plugin  => $plugin_type,
                         name    => $name,
-                        id      => $plugin->getId(),
-                        version => $plugin->getVersion() || "0.0",
+                        id      => $name,
+                        version => "0.0",
                         impl    => \&{"${plugin}\::${field}"},
                         attr    => _parse_attr @attr);
 
@@ -182,7 +183,7 @@ EOPLUGIN
         }
     };
     if (my $err = $@) {
-        Debug "error $err\n";
+        debug "error $err\n";
         $log->error("Error loading plugin $plugin: $@");
     }
 }
@@ -190,14 +191,14 @@ EOPLUGIN
 sub get_plugins {
     my $self = shift;
 
-    Trace;
+    trace;
 
     my $finder = $self->plugin_finder (@_);
 
-    Debug "%s", dump($finder);
+    debug "%s", dump($finder);
 
     for ($finder->plugins) {
-        Debug "Found potential plugin provider %s", $_;
+        debug "Found potential plugin provider %s", $_;
         $self->plugin($_);
     }
 

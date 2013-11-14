@@ -1,5 +1,5 @@
 package Conform::Config;
-use Mouse;
+use Moose;
 
 =head1  NAME
 

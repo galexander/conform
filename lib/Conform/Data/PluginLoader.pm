@@ -1,7 +1,11 @@
 package Conform::Data::PluginLoader;
-use Mouse;
+use Moose;
 
 with 'Conform::PluginLoader';
+
+sub register {
+
+}
 
 1;
 # vi: set ts=4 sw=4:

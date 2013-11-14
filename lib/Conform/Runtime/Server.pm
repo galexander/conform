@@ -1,13 +1,9 @@
 package Conform::Runtime::Server;
 use strict;
-use Mouse;
+use Moose;
 use Conform::Plugin;
 
 our $VERSION = 1.1;
-
-Id      'Conform::Runtime::Server';
-Name    'Runtime::Server';
-Version  $VERSION;
 
 =head1  NAME
 

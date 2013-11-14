@@ -57,8 +57,7 @@ package Conform::Core;
 use strict;
 
 use Carp;
-use Conform::Debug qw(Debug);
-use Conform::Logger qw(debug note);
+use Conform::Logger qw(trace debug note notice warn fatal);
 use Conform::Core::Netgroups;
 use Data::Dumper;
 

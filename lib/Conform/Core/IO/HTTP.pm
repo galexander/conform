@@ -1,6 +1,3 @@
-#!/usr/bin/perl
-#!/bin/false
-
 =encoding utf8
 
 =head1 NAME
@@ -50,14 +47,13 @@ use LWP::UserAgent;
 use HTTP::Request;
 use HTTP::Date qw( time2str );
 use Text::Template;
-use Conform::Debug qw(Debug);
 use Conform::Core qw(
                     action
                     timeout
                     safe
                     );
 
-use Conform::Logger qw($log);
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Conform::Core::IO::Command qw(command);
 use Conform::Core::IO::File qw(safe_write safe_write_file dir_check);
 
@@ -114,6 +110,8 @@ sub _deprecated {
 =head1 FUNCTIONS
 
 =over
+
+=cut
 
 sub _parse_time {
     my ( $d, $m, $Y, $H, $M, $S ) =

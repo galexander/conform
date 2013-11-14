@@ -1,5 +1,5 @@
 package Conform::Site::API;
-use Mouse::Role;
+use Moose::Role;
 use strict;
 
 requires 'version';

@@ -24,12 +24,11 @@ Generic 'Conform::Work' scheduler/executor with dependency resolution
     
 =cut
 
-use Mouse;
+use Moose;
 use Conform::Queue;
 use Data::Dump qw(dump);
-use Conform::Debug qw(Debug Trace);
 use Scalar::Util qw(refaddr);
-use Conform::Logger qw($log);
+use Conform::Logger qw($log trace debug notice warn fatal);
 
 has 'executor' => (
     is => 'rw',
@@ -106,7 +105,7 @@ Executes any 'waiting' work prior to being scheduled.
 =cut
 
 
-sub schedule { Trace "schedule(@{[dump($_[1])]})";
+sub schedule { trace "schedule(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
     
@@ -124,7 +123,7 @@ sub schedule { Trace "schedule(@{[dump($_[1])]})";
 
             $schedule = !$existing;
 
-            Debug "work %s already exists", $work->$check
+            debug "work %s already exists", $work->$check
         }
     }
 
@@ -132,7 +131,7 @@ sub schedule { Trace "schedule(@{[dump($_[1])]})";
     $self->pending->enqueue($work)
         if $schedule;
 
-    Trace "schedule - pending = %d, waiting = %d, completed = %d, runnable = %d\n",
+    trace "schedule - pending = %d, waiting = %d, completed = %d, runnable = %d\n",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -152,7 +151,7 @@ will be run.
 
 =cut
 
-sub wait { Trace "wait(@{[ dump($_[1]) ]}";
+sub wait { trace "wait(@{[ dump($_[1]) ]}";
     my $self   = shift;
     my $work   = shift;
     $self->waiting->enqueue($work);
@@ -168,7 +167,7 @@ Find all work 'waiting'
 
 =cut
 
-sub find_waiting { Trace "find_waiting(@{[dump($_[1])]})";
+sub find_waiting { trace "find_waiting(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
 
@@ -209,13 +208,13 @@ a dependency.
 
 =cut
 
-sub find_dependency { Trace "find_dependency(@{[dump($_[1])]})";
+sub find_dependency { trace "find_dependency(@{[dump($_[1])]})";
     my $self       = shift;
     my $dependency = shift;
 
     my $found;
 
-    Trace "searching completed queue";
+    trace "searching completed queue";
     $found = $self->completed->find(
         single => sub {
             my $work = shift;
@@ -226,7 +225,7 @@ sub find_dependency { Trace "find_dependency(@{[dump($_[1])]})";
         return $found;
     }
 
-    Trace "searching pending queue";
+    trace "searching pending queue";
     $found = $self->pending->extract(
         single => sub {
             my $work = shift;
@@ -238,7 +237,7 @@ sub find_dependency { Trace "find_dependency(@{[dump($_[1])]})";
     }
 
 
-    Trace "searching runnable queue";
+    trace "searching runnable queue";
     $found = $self->runnable->extract(
         single => sub {
             my $work = shift;
@@ -249,7 +248,7 @@ sub find_dependency { Trace "find_dependency(@{[dump($_[1])]})";
     return $found;
 }
 
-sub complete { Trace "complete(@{[dump($_[1])]})";
+sub complete { trace "complete(@{[dump($_[1])]})";
     my $self   = shift;
     my $work   = shift;
 
@@ -265,7 +264,7 @@ sub complete { Trace "complete(@{[dump($_[1])]})";
     }
 }
 
-sub run { Trace "run()";
+sub run { trace "run()";
     my $self     = shift;
     while ($self->has_work) {
         my $work = $self->pending->dequeue();
@@ -285,7 +284,7 @@ Also executes work 'waiting' for this peice of work
 
 =cut
 
-sub execute { Trace "execute(@{[ $_[1]->name ]})";
+sub execute { trace "execute(@{[ $_[1]->name ]})";
     my $self     = shift;
     my $work     = shift;
     my $stack    = shift || [];
@@ -311,7 +310,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     # Put work on runnable queue
     $self->runnable->enqueue($work);
 
-    Trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
+    trace "pre execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -319,9 +318,10 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
 
     # Find all dependencies
     my $dependencies = $work->dependencies;
+
     for my $dependency (@$dependencies) {
         my $found = $self->find_dependency ($dependency);
-        Debug "found dependency %s", dump($found);
+        debug "found dependency %s", dump($found);
         if ($found) {
             unless($found->complete) {
                 # Execute found (not complete) work
@@ -337,7 +337,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     }
 
     # Execute the work (This can call 'schedule' as well)
-    Trace "executing %s %s", $work->id, $work->name;
+    trace "executing %s [%s] [prio=%s]", $work->name, $work->id, $work->prio;
     my $executor = $self->executor;
     if (ref $executor eq 'CODE') {
         $executor->($work);
@@ -351,7 +351,7 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
     # Move work to the 'completed' queue
     $self->complete($work);
 
-    Trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
+    trace "post execute - pending = %d, waiting = %d, completed = %d, runnable = %s",
         $self->pending->size,
         $self->waiting->size,
         $self->completed->size,
@@ -360,3 +360,4 @@ sub execute { Trace "execute(@{[ $_[1]->name ]})";
 
 
 1;
+

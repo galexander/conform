@@ -1,13 +1,13 @@
 package Conform::Work::Plugin;
-use Mouse;
+use Moose;
 
 extends 'Conform::Plugin';
 
 use Conform;
 use Conform::Core qw();
 use Conform::Action;
+use Conform::Logger qw($log trace debug notice warn fatal);
 use Storable qw(dclone);
-use Conform::Debug qw(Trace Debug);
 use Data::Dump qw(dump);
 use Conform::Plugin;
 use Conform::ExecutionContext;
@@ -45,7 +45,7 @@ sub extract_directives {
                 push @directives, { $1 => $arg->{$key} };
             } else {
                 if (ref $arg->{$key} eq 'HASH') {
-                    Debug "Searching deep %s", dump($arg->{$key});
+                    debug "Searching deep %s", dump($arg->{$key});
                     push @directives, $self->extract_directives ($arg->{$key});
                 }
             }
@@ -101,7 +101,7 @@ sub _agent {
 sub _action {
     my $agent = _agent;
     my $action  = shift;
-    Debug "Adding action $action\n";
+    debug "Adding action $action\n";
     my $value = $agent->nodes->{$agent->iam}{$action};
     unless (defined $value) {
         push @{$agent->nodes->{$agent->iam}{$action}}, @_;

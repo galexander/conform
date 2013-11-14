@@ -1,6 +1,6 @@
 package Conform::Runtime::Plugin;
 use strict;
-use Mouse;
+use Moose;
 use Data::Dumper;
 use Scalar::Util qw(refaddr);
 
