@@ -103,5 +103,21 @@ trap {
 
 is $trap->stdout, "ERROR some text\nERROR some more error text\n", "formatted message OK";
 
+Conform::Logger->configure('file', 'ALL' => {
+        formatter => { 'default' => '[%T] %L %s %m' },
+        file => '/tmp/conform.log',
+});
+
+package Bar;
+
+sub foo {
+    $log->error("ERROR!");
+};
+
+package main;
+
+Bar->foo();
+
+
 # vi: set ts=4 sw=4:
 # vi: set expandtab:

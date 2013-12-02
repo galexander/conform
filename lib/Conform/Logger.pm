@@ -355,7 +355,6 @@ sub _msg {
     return \%msg;
 }
 
-
 for my $method (@LOG_FUNCTIONS) {
     my $printf = sprintf "%sf",   $method;
     my $print  = sprintf "%s",    $method;
@@ -415,7 +414,7 @@ sub _fmt {
         'l' => $msg->{line}||'',
         'L' => $msg->{level},
     );
-    1 while $fmt =~ s|%(\w)|exists $map{$1} ? $map{$1} : ''|ge;
+    $fmt =~ s|%(\w)|exists $map{$1} ? $map{$1} : ''|ge;
     return $fmt;
 }
 
@@ -437,13 +436,15 @@ sub _chomp {
 }
 
 $SIG{__WARN__} = sub {
-    __PACKAGE__->get_logger(category => 'root')->warn(_chomp(@_));
+    my $logger = __PACKAGE__->_get_logger('root');
+    $logger->warn(_chomp(@_));
 };
 
 $SIG{__DIE__} = sub {
     die @_ if $^S;
     my $state = $^S;
-    __PACKAGE__->get_logger(category => 'root')->fatal(_chomp(@_)) if defined $^S;
+    my $logger = __PACKAGE__->_get_logger('root');
+    $logger->fatal(_chomp(@_)) if defined $^S;
     die @_;
 };
 

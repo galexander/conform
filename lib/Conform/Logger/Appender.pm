@@ -23,7 +23,7 @@ sub get_formatter {
     my $level = shift;
     my $formatter = $self->formatter->{$level};
     unless (defined $formatter) {
-        $formatter = $self->formatter->{'default'} = '%m';
+        $formatter = $self->formatter->{'default'} ||= '%m';
     }
     return $formatter;
 }
