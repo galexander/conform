@@ -21,7 +21,7 @@ Conform::Logger::Stdout
 sub log {
     my $self = shift;
     my $msg = shift;
-    print $msg->{content};
+    print $msg->{content} . "\n";
 }
 
 1;

@@ -22,8 +22,28 @@ Conform::Logger
                        fatal fatalf is_fatal);
 
     # configuration
-    Conform::Logger->set('Stderr');
-    Conform::Logger->set('Stdout');
+    Conform::Logger->configure('Stderr');
+    Conform::Logger->configure('Stderr', 'INFO');
+    Conform::Logger->configure('Stdout');
+    Conform::Logger->configure('Stdout', 'ALL');
+    Conform::Logger->configure('Stderr', { category => 'root', level => 'debug' });
+    Conform::Logger->configure('Stderr', 'TRACE', { category => 'root', level => 'debug' });
+    Conform::Logger->configure('Stdout' => { category => 'root', level => 'debug' });
+    Conform::Logger->configure('Stdout' 'DEBUG', => { category => 'root', level => 'debug' });
+    Conform::Logger->configure({ category => 'root', level => 'INFO', appenders => {
+                                    'file' => {
+                                        type => '::File',
+                                        level => 'debug',
+                                        formatter => {
+                                            'TRACE' => '[%T] %L %P %s %m',
+                                            'DEBUG' => '[%T] %L %P %s %m',
+                                            'default' => '[%T] %L %m',
+                                        },
+                                    },
+                               });
+
+    
+    
 
     # Logging
 
@@ -110,21 +130,24 @@ use constant LOG_LEVEL_WARNING  => 4;
 use constant LOG_LEVEL_ERROR    => 5;
 use constant LOG_LEVEL_FATAL    => 6;
 use constant LOG_LEVEL_CRITICAL => 7;
+use constant LOG_LEVEL_MIN      => LOG_LEVEL_TRACE;
+use constant LOG_LEVEL_MAX      => LOG_LEVEL_CRITICAL;
 
 sub LOG_LEVEL {
-    return $_[0]              if $_[0] =~ m{[0-7]};
-    return LOG_LEVEL_TRACE    if $_[0] eq 'ALL';
-    return LOG_LEVEL_TRACE    if $_[0] eq 'TRACE';
-    return LOG_LEVEL_DEBUG    if $_[0] eq 'DEBUG';
-    return LOG_LEVEL_INFO     if $_[0] eq 'INFO';
-    return LOG_LEVEL_NOTICE   if $_[0] eq 'NOTICE';
-    return LOG_LEVEL_NOTICE   if $_[0] eq 'NOTE';
-    return LOG_LEVEL_WARNING  if $_[0] eq 'WARN';
-    return LOG_LEVEL_WARNING  if $_[0] eq 'WARNING';
-    return LOG_LEVEL_ERROR    if $_[0] eq 'ERROR';
-    return LOG_LEVEL_FATAL    if $_[0] eq 'FATAL';
-    return LOG_LEVEL_CRITICAL if $_[0] eq 'CRITICAL';
-    croak "invalid LOG_LEVEL $_[0]";
+    return $_[0]              if $_[0] =~ /^\d$/ && $_[0] >= LOG_LEVEL_MIN && $_[0] <= LOG_LEVEL_MAX;
+    my $level = uc $_[0];
+    return LOG_LEVEL_TRACE    if $level eq 'ALL';
+    return LOG_LEVEL_TRACE    if $level eq 'TRACE';
+    return LOG_LEVEL_DEBUG    if $level eq 'DEBUG';
+    return LOG_LEVEL_INFO     if $level eq 'INFO';
+    return LOG_LEVEL_NOTICE   if $level eq 'NOTICE';
+    return LOG_LEVEL_NOTICE   if $level eq 'NOTE';
+    return LOG_LEVEL_WARNING  if $level eq 'WARN';
+    return LOG_LEVEL_WARNING  if $level eq 'WARNING';
+    return LOG_LEVEL_ERROR    if $level eq 'ERROR';
+    return LOG_LEVEL_FATAL    if $level eq 'FATAL';
+    return LOG_LEVEL_CRITICAL if $level eq 'CRITICAL';
+    croak "invalid LOG_LEVEL $level";
 }
 
 our @LOG_FUNCTIONS = qw(
@@ -145,21 +168,153 @@ our @LOG_EXPORT_OK = (
     map { ("$_", "${_}f", "is_${_}") } @LOG_FUNCTIONS
 );
 
-our %loggers = ();
-our $root_logger 
-    = $loggers{'root'} 
-    = Conform::Logger->new(category => 'root', 
-                           level => LOG_LEVEL('INFO'),
-                           appender => Conform::Logger::Stderr->new());
+our %LOGGER = ();
 
-our $root_level = LOG_LEVEL('INFO');
-our $root_appender = Conform::Logger::Stderr->new();
+sub _traverse_namespace;
+sub _traverse_namespace {
+    my $package = shift;
+    my $sub = shift;
+    my @parts = split '::', $package;
+    while (@parts) {
+        my $check = join '::', @parts;
+        if ($sub->($check)) {
+            return $check;
+        }
+        pop @parts;
+    }
+    return 0;
+}
 
-our %LOG_FORMAT = (
-    'TRACE' => '[%T] %L %P %s %m',
-    'DEBUG' => '[%T] %L %P %s %m',
-    'default' => '[%T] %L %m',
-);
+sub get_root_logger {
+    if ($LOGGER{'root'}) {
+        return $LOGGER{'root'};
+    }
+    return $LOGGER{'root'} = Conform::Logger->new( category => 'root',
+                                                   level => LOG_LEVEL('INFO'),
+                                                   formatter => {
+                                                        'TRACE' => '[%T] %L %P %s %m',
+                                                        'DEBUG' => '[%T] %L %P %s %m',
+                                                        'default' => '[%T] %L %m',
+                                                   },
+                                                   appenders => {
+                                                        'stderr' => Conform::Logger::Stderr->new(
+                                                                                id => 'stderr',
+                                                                                level    => LOG_LEVEL('INFO'),
+                                                                                formatter => {
+                                                                                    'TRACE' => '[%T] %L %P %s %m',
+                                                                                    'DEBUG' => '[%T] %L %P %s %m',
+                                                                                    'default' => '[%T] %L %m',
+                                                                                }),
+                                                    });
+}
+
+sub _get_logger {
+    my $category = shift;
+    return $LOGGER{root} unless exists $LOGGER{$category};
+    return $LOGGER{$category};
+}
+
+sub find_logger {
+    my $package = shift;
+    my $category = shift;
+    if ($category eq 'root') {
+        return $package->get_root_logger();
+    }
+    my $logger;
+    if ($logger = _traverse_namespace $category, sub { exists $LOGGER{$_[0]} }) {
+        return $LOGGER{$logger};
+    }
+    return $package->get_root_logger();
+}
+
+sub _create_appender {
+    my $package = shift;
+    my %args = @_;
+    my $type = $args{'type'};
+    my $appender;
+    $type = sprintf "::%s", ucfirst $type
+                if $type =~ /^[a-z]/;
+    $type = sprintf "Conform::Logger%s", $type
+                if ($type =~ /^::/);
+
+    eval "require $type;";
+    die "$@"
+        if $@;
+
+    return $type->new(%args);
+}
+
+sub configure {
+    my $package = shift;
+    my $root    = $package->get_root_logger();
+    my @conf = ();
+    if (!ref $_[0]) {
+        my $appender = shift @_;
+        my $level = shift @_ unless ref $_[0];
+        $level = $root->level
+            unless defined $level;
+        $level = LOG_LEVEL($level);
+        push @conf, { level => $level, appenders => { $appender => { type => $appender,  ref $_[0] ? %{$_[0]} : () } } };
+    } else {
+        @conf = @_;
+    }
+    for my $conf (@conf) {
+
+        my $category  = $conf->{'category'};
+        my $level     = $conf->{'level'};
+        my $appenders = $conf->{'appenders'};
+        my $formatter = $conf->{'formatter'};
+
+        $category   = 'root'            unless defined $category;
+
+        my $logger = $package->_get_logger($category);
+        unless (defined $logger) {
+            $logger = $root->clone(category => $category);
+        }
+            
+        $level      = $logger->level      unless defined $level;
+        $appenders  = $logger->appenders  unless defined $appenders;
+        $formatter  = $logger->formatter  unless defined $formatter;
+
+        $level = LOG_LEVEL($level);
+
+        my %args = ();
+        my %appenders = ();
+
+        for my $appender_id (keys %$appenders) {
+            my $appender = $appenders->{$appender_id};
+            if (ref $appender) {
+                if (blessed $appender && $appender->isa('Conform::Logger::Appender')) {
+                    my $impl = $appender->clone(id => $appender_id);
+                    $appenders{$impl->id} = $impl;
+                } else {
+                    my $impl = $package->_create_appender(id => $appender_id, level => $level, %$appender);
+                    $appenders{$impl->id} = $impl;
+                }
+            } else {
+                my $impl = $package->_create_appender(id => $appender_id, type => $appender);
+                $appenders{$impl->id} = $impl;
+            }
+        }
+        $logger->level($level);
+        $logger->appenders(\%appenders);
+        $logger->formatter($formatter);
+
+        $LOGGER{$logger->category} = $logger;
+    }
+}
+
+sub clone {
+    my $self = shift;
+    my %args = @_;
+    my $package = ref $self;
+    $args{'id'} ||= $self->id;
+    $args{'category'} ||= $self->category;
+    $args{'level'} = $self->level unless exists $args{level};
+    $args{'formatter'} ||= $self->formatter;
+    $args{'appenders'} ||= $self->appenders;
+    $package->new(%args);
+}
 
 sub _msg {
     my $caller  = shift;
@@ -210,7 +365,7 @@ for my $method (@LOG_FUNCTIONS) {
     *$print = sub {
         my $self    = shift;
         my @caller  = caller(1);
-        my $logger  = $self->get_logger(category => $caller[0]);
+        my $logger = $self;
         if ($logger->$check()) {
             my $fmt;
             if (scalar @_ > 1) {
@@ -218,17 +373,17 @@ for my $method (@LOG_FUNCTIONS) {
             } else {
                 $fmt = "%s";
             }
-            $logger->log(_msg \@caller, uc "$method", sprintf $fmt, @_);
+            $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_);
         }
     };
     
     *$printf = sub {
         my $self   = shift;
         my @caller = caller(1);
-        my $logger = $self->get_logger(category => $caller[0]);
+        my $logger = $self;
         if ($logger->$check()) {
             my $fmt = shift;
-            $logger->log(_msg \@caller, uc "$method", sprintf $fmt, @_ );
+            $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_ );
         }
     };
 
@@ -240,23 +395,11 @@ for my $method (@LOG_FUNCTIONS) {
     };
 }
 
-sub get_root_logger {
-    my $package = shift;
-    return exists $loggers{'root'}
-        ? $loggers{'root'}
-        : $root_logger
-            = $loggers{'root'}
-            = Conform::Logger->new(category => 'root', level => $root_level,  appender => $root_appender);
-}
-
 sub get_logger {
     my $package = shift;
     my %args = @_;
     my $category = $args{category} || caller;
-    if (my $logger = $loggers{$category}) {
-        return $logger;
-    }
-    return $package->get_root_logger();
+    return $package->find_logger($category);
 }
 
 sub _fmt {
@@ -276,17 +419,15 @@ sub _fmt {
     return $fmt;
 }
 
-sub log {
+sub _log {
     my $self = shift;
     my $msg  = shift;
-    my $appender = $self->appender;
-    
-    my $fmt = $LOG_FORMAT{$msg->{level}};
-    $fmt  ||= $LOG_FORMAT{'default'};
-
-    $msg->{content} = _fmt $fmt, $msg;
-
-    $appender->log($msg);
+    for my $appender (values %{$self->appenders}) {
+        my $fmt = $appender->get_formatter($msg->{level});
+        $fmt ||= $appender->get_formatter('default');
+        $msg->{content} = _fmt $fmt, $msg;
+        $appender->log($msg);
+    }
 }
 
 sub _chomp {
@@ -296,13 +437,13 @@ sub _chomp {
 }
 
 $SIG{__WARN__} = sub {
-    $root_logger->warn(_chomp(@_));
+    __PACKAGE__->get_logger(category => 'root')->warn(_chomp(@_));
 };
 
 $SIG{__DIE__} = sub {
     die @_ if $^S;
     my $state = $^S;
-    $root_logger->fatal(_chomp(@_)) if defined $^S;
+    __PACKAGE__->get_logger(category => 'root')->fatal(_chomp(@_)) if defined $^S;
     die @_;
 };
 
@@ -326,13 +467,14 @@ sub import {
                 my @caller = caller(1);
                 
                 my $logger = __PACKAGE__->get_logger(category => $caller[0]);
-                (my $check = $method) =~ s!^(\S+)f?!is_${1}!;
+                (my $check = $method) =~ s!^(\S+)!is_$1!;
+                $check =~ s{f$}{};
                 if ($logger->$check()) {
                     my $fmt = shift;
                     if (scalar @_) {
-                        $logger->log(_msg \@caller, uc "$method", sprintf $fmt, @_);
+                        $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_);
                     } else {
-                        $logger->log(_msg \@caller, uc "$method", $fmt);
+                        $logger->_log(_msg \@caller, uc "$method", $fmt);
                     }
                 }
             };
@@ -366,7 +508,7 @@ sub import {
 
 =head2 set
     
-    Conform::Logger->set($appender)
+    Conform::Logger->configure($appender)
 
 I<Parameters>
 
@@ -416,102 +558,37 @@ sub get_log {
     return $_log;
 }
 
+has 'id' => (
+    is => 'rw',
+);
+
+has 'appenders' => (
+    is => 'rw',
+    isa => 'HashRef',
+);
+
+has 'formatter' => (
+    is => 'rw',
+    isa => 'HashRef',
+);
+
 has 'category' => (
     is => 'rw',
     isa => 'Str',
 );
 
-has 'appender' => (
-    is => 'rw',
-    isa => 'Conform::Logger::Appender',
-    default => sub { Conform::Logger::Stderr->new() },
-);
-
 has 'level' => (
     is => 'rw',
     isa => 'Int',
-    default => sub { $root_level },
+    default => sub { LOG_LEVEL('info') },
 );
 
-sub get_appender {
-    my $class = shift;
-    my $appender_class = shift;
-    if ($appender_class =~ m{^::}) {
-        $appender_class = sprintf "%s%s", __PACKAGE__, $appender_class;
-    }
-    eval "require $appender_class;";
-    print STDERR "$@";
-    if (my $err = $@) {
-        die "$appender_class not installed or contains an error $err $!";
-    }
-    $appender_class->new(@_);
+sub get_formatter {
+    my $self = shift;
+    my $level = shift;
+    my $formatters = $self->formatter;
+    return $formatters->{$level};
 }
-
-sub set_appender {
-    my $package = shift;
-    my $caller  = caller;
-
-    my $category;
-    my $appender;
-    my $level;
-
-    if (@_ == 1) {
-        $appender = shift
-            or croak "appender is required";
-        unless (ref $appender) {
-            $appender = $package->get_appender($appender);
-        }
-    } else {
-        my %args = @_;
-        $appender = delete $args{appender}
-            or croak "appender is required";
-        unless (ref $appender) {
-            $appender = $package->get_appender($appender, @_);
-        }
-        $category = $args{category};
-        $level = $args{level};
-    }
-
-    $category = $caller unless defined $category;
-    $level    = LOG_LEVEL(defined $level ? $level : 'INFO');
-
-    if (exists $loggers{$category}) {
-        $loggers{$category}->appender($appender);
-        $loggers{$category}->level($level);
-    } else {
-        $loggers{$category} = Conform::Logger->new(category => $category,
-                                                   appender => $appender,
-                                                   level    => $level);
-
-        if ($category eq 'root') {
-            $root_logger   = $loggers{$category};
-            $root_appender = $appender;
-            $root_level    = $level;
-        }
-    }
-}
-
-sub set_level {
-    my $package = shift;
-    if (ref $package) {
-        $package->level(@_);
-    } else {
-        $root_level = shift @_;
-    }
-}
-
-sub set_default {
-    my $package = shift;
-    my %args = @_;
-    my $category = $args{category} || 'root';
-    my $level    = exists $args{level}
-                        ? LOG_LEVEL($args{level})
-                        : LOG_LEVEL('INFO');
-    my $appender = $args{appender} || '::Stderr';
-    $package->set_level($level);
-    $package->set_appender(category => $category, appender => $appender, level => $level);
-}
-
 
 =head1  METHODS
 
