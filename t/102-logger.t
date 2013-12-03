@@ -1,10 +1,11 @@
 use strict;
-use Test::More tests => 13;
+use Test::More tests => 15;
 use Test::Trap;
 use FindBin;
 use File::Temp qw(tempfile);
 use lib "$FindBin::Bin/../lib";
 use Test::Files;
+use Data::Dumper;
 
 our $log;
 
@@ -103,21 +104,24 @@ trap {
 
 is $trap->stdout, "ERROR some text\nERROR some more error text\n", "formatted message OK";
 
-Conform::Logger->configure('file', 'ALL' => {
-        formatter => { 'default' => '[%T] %L %s %m' },
-        file => '/tmp/conform.log',
+package Foo;
+Conform::Logger->configure({
+    level => 'ALL', appenders => { 'stderr' => { type => 'stderr', formatter => { default => '%P:%c:%m', }}}
 });
 
-package Bar;
+package Foo::Bar;
+use strict;
+our $log;
+use Conform::Logger qw(error $log);
+use Test::Trap;
+use Test::More ();
 
-sub foo {
-    $log->error("ERROR!");
-};
+trap { $log->error("error") };
+Test::More::is($trap->stderr, "Foo::Bar:Foo:error\n", " category inheritance ok from log object");
 
-package main;
 
-Bar->foo();
-
+trap { error("error") };
+Test::More::is($trap->stderr, "Foo::Bar:Foo:error\n", " category inheritance ok from import");
 
 # vi: set ts=4 sw=4:
 # vi: set expandtab:

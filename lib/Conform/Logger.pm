@@ -189,7 +189,7 @@ sub get_root_logger {
     if ($LOGGER{'root'}) {
         return $LOGGER{'root'};
     }
-    return $LOGGER{'root'} = Conform::Logger->new( category => 'root',
+    return $LOGGER{'root'} ||= Conform::Logger->new( category => 'root',
                                                    level => LOG_LEVEL('INFO'),
                                                    formatter => {
                                                         'TRACE' => '[%T] %L %P %s %m',
@@ -209,12 +209,13 @@ sub get_root_logger {
 }
 
 sub _get_logger {
+    my $package  = shift;
     my $category = shift;
-    return $LOGGER{root} unless exists $LOGGER{$category};
+    #return $LOGGER{root} unless exists $LOGGER{$category};
     return $LOGGER{$category};
 }
 
-sub find_logger {
+sub resolve_logger {
     my $package = shift;
     my $category = shift;
     if ($category eq 'root') {
@@ -247,6 +248,7 @@ sub _create_appender {
 sub configure {
     my $package = shift;
     my $root    = $package->get_root_logger();
+    my $caller  = caller;
     my @conf = ();
     if (!ref $_[0]) {
         my $appender = shift @_;
@@ -260,18 +262,21 @@ sub configure {
     }
     for my $conf (@conf) {
 
-        my $category  = $conf->{'category'};
+        my $category  = $conf->{'category'} || $caller;
         my $level     = $conf->{'level'};
         my $appenders = $conf->{'appenders'};
         my $formatter = $conf->{'formatter'};
 
-        $category   = 'root'            unless defined $category;
+
+        $category   = 'root' unless defined $category;
+        $category   = 'root' if $category eq 'main';
 
         my $logger = $package->_get_logger($category);
+
         unless (defined $logger) {
-            $logger = $root->clone(category => $category);
+            $logger = $root->clone(category => $category, id => $category);
         }
-            
+
         $level      = $logger->level      unless defined $level;
         $appenders  = $logger->appenders  unless defined $appenders;
         $formatter  = $logger->formatter  unless defined $formatter;
@@ -300,7 +305,9 @@ sub configure {
         $logger->appenders(\%appenders);
         $logger->formatter($formatter);
 
+
         $LOGGER{$logger->category} = $logger;
+
     }
 }
 
@@ -317,10 +324,12 @@ sub clone {
 }
 
 sub _msg {
-    my $caller  = shift;
-    my $level   = shift;
-    my $content = shift ||'';
+    my $caller   = shift;
+    my $category = shift;
+    my $level    = shift;
+    my $content  = shift ||'';
     my %msg = (
+        'category'   => $category,
         'package'    => $caller->[0],
         'filename'   => $caller->[1],
         'line'       => $caller->[2],
@@ -360,6 +369,10 @@ for my $method (@LOG_FUNCTIONS) {
     my $print  = sprintf "%s",    $method;
     my $check  = sprintf "is_%s", $method;
 
+    my $facade_printf = sprintf "Conform::Logger::Facade::%s", $printf;
+    my $facade_print  = sprintf "Conform::Logger::Facade::%s", $print;
+    my $facade_check  = sprintf "Conform::Logger::Facade::%s", $check;
+
     no strict 'refs';
     *$print = sub {
         my $self    = shift;
@@ -372,7 +385,7 @@ for my $method (@LOG_FUNCTIONS) {
             } else {
                 $fmt = "%s";
             }
-            $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_);
+            $logger->_log(_msg \@caller, $logger->category, uc "$method", sprintf $fmt, @_);
         }
     };
     
@@ -382,7 +395,7 @@ for my $method (@LOG_FUNCTIONS) {
         my $logger = $self;
         if ($logger->$check()) {
             my $fmt = shift;
-            $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_ );
+            $logger->_log(_msg \@caller, $logger->category, uc "$method", sprintf $fmt, @_ );
         }
     };
 
@@ -392,18 +405,38 @@ for my $method (@LOG_FUNCTIONS) {
         my $self = shift;
         return $self->level <= $log_level;
     };
+
+    *$facade_printf = sub {
+        my $self = shift;
+        my $logger = Conform::Logger->get_logger(category => $self->category);
+        $logger->$printf(@_);
+    };
+
+    *$facade_print = sub {
+        my $self = shift;
+        my $logger = Conform::Logger->get_logger(category => $self->category);
+        $logger->$printf(@_);
+    };
+
+    *$facade_check = sub {
+        my $self = shift;
+        my $logger = Conform::Logger->get_logger(category => $self->category);
+        $logger->$check();
+    };
+
 }
 
 sub get_logger {
     my $package = shift;
     my %args = @_;
     my $category = $args{category} || caller;
-    return $package->find_logger($category);
+    return $package->resolve_logger($category);
 }
 
 sub _fmt {
     my ($fmt, $msg) = @_;
     my %map = (
+        'c' => $msg->{category},
         't' => $msg->{time},
         'T' => $msg->{localtime},
         'm' => $msg->{content},
@@ -465,7 +498,7 @@ sub import {
         no strict 'refs';
         unless (defined &{"${import_caller}\::${method}"}) {
             *{"${import_caller}\::${method}"} = sub {
-                my @caller = caller(1);
+                my @caller = caller(0);
                 
                 my $logger = __PACKAGE__->get_logger(category => $caller[0]);
                 (my $check = $method) =~ s!^(\S+)!is_$1!;
@@ -473,9 +506,9 @@ sub import {
                 if ($logger->$check()) {
                     my $fmt = shift;
                     if (scalar @_) {
-                        $logger->_log(_msg \@caller, uc "$method", sprintf $fmt, @_);
+                        $logger->_log(_msg \@caller, $logger->category, uc "$method", sprintf $fmt, @_);
                     } else {
-                        $logger->_log(_msg \@caller, uc "$method", $fmt);
+                        $logger->_log(_msg \@caller, $logger->category, uc "$method", $fmt);
                     }
                 }
             };
@@ -498,10 +531,11 @@ sub import {
 
 
     if ($log) {
-        my $log = $package->get_logger(category => $import_caller[0]);
+        # my $log = $package->get_logger(category => $import_caller[0]);
+        my $log = Conform::Logger::Facade->new(category => $import_caller[0]);
         no strict 'refs';
-        my $varname = "$import_caller\::log";
-        *$varname = \$log;
+        my $varname = "$import_caller[0]\::log";
+        *{"${varname}"} = \Conform::Logger::Facade->new(category => $import_caller[0]);
     }
 }
 
@@ -714,13 +748,21 @@ sub get_formatter {
 
 =cut
 
+__PACKAGE__->meta->make_immutable;
+
+package Conform::Logger::Facade;
+use Moose;
+
+has 'category' => (
+    is => 'rw',
+    required => 1,
+);
+
 =head1  SEE ALSO
 
 =over
 
-=item   L<Log::Any>
-
-=item   L<Log::Any::Adapter>
+=item   L<Conform::Logger::Adapter>
 
 =back
 
