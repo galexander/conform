@@ -6,12 +6,12 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 
 BEGIN {
-use_ok('Conform::Core', qw( action safe ))
+use_ok('Conform::Core', qw( action safe))
     or die "# Conform::Core not available\n";
 }
 
-use Conform::Logger;
-Conform::Logger->set('Stderr');
+use Conform::Logger qw(warn);
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
 
 my $action = sub { warn "foo"; shift };
 

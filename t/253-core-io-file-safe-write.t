@@ -16,6 +16,8 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
 my $mask = umask 0000;
 
 my $dirname    = File::Temp::tempdir(CLEANUP => 1);

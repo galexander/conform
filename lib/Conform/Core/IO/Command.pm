@@ -33,7 +33,7 @@ use IO::Socket;
 use IO::Select;
 
 use Conform::Core qw(action timeout safe);
-use Conform::Logger qw(debug);
+use Conform::Logger qw(debug warn);
 
 use base qw( Exporter );
 use vars qw(

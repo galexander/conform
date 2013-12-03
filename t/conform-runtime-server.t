@@ -15,18 +15,9 @@ can_ok 'Conform::Runtime::Server', 'data_providers';
 can_ok 'Conform::Runtime::Server', 'action_providers';
 can_ok 'Conform::Runtime::Server', 'boot';
 
-use Conform::Debug;
-
-$Conform::Debug::DEBUG++ if grep /-d/, @ARGV;
-
 
 my $runtime = Conform::Runtime::Server->new();
 $runtime->boot;
-
-printf "Id=%s Name=%s Version=%s\n", $runtime->getId(),
-                     $runtime->getName(),
-                     $runtime->getVersion();
-
 
 
 

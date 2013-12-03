@@ -14,6 +14,10 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+use Conform::Logger;
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
+
 sub find_bin {
     my $bin = shift
             or return undef;

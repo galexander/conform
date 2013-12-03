@@ -477,7 +477,9 @@ $SIG{__DIE__} = sub {
     die @_ if $^S;
     my $state = $^S;
     my $logger = __PACKAGE__->_get_logger('root');
-    $logger->fatal(_chomp(@_)) if defined $^S;
+    if ($logger) {
+        $logger->fatal(_chomp(@_)) if defined $^S
+    }
     die @_;
 };
 

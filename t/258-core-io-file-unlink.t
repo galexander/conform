@@ -16,6 +16,10 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+use Conform::Logger;
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
+
 my $have_rcs = find_command 'ci';
 
 my $dirname    = File::Temp::tempdir(CLEANUP => 1);

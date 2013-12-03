@@ -17,6 +17,10 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+use Conform::Logger;
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
+
 sub _filter_rcs_id { # added on sirz 52319
     return join '', map {
             my $foo = $_;

@@ -15,6 +15,9 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
+
 my $dirname  = File::Temp::tempdir(CLEANUP => 1);
 my $filename = File::Spec->catfile($dirname, 'file');
 my $missing  = File::Spec->catfile($dirname, 'missing');

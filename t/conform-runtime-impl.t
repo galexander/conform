@@ -11,7 +11,7 @@ BEGIN {
 }
 
 package Conform::Runtime::Server::Linux::Test;
-use Mouse;
+use Moose;
 extends 'Conform::Runtime::Server::Linux';
 
 sub os_distro           { 'os_distro'; }
@@ -20,7 +20,6 @@ sub os_distro_version   { 'os_distro_version' };
 
 package main;
 
-Conform::Logger->set('Stderr');
 
 my $rt = Conform::Runtime::Server::Linux::Test->new();
 

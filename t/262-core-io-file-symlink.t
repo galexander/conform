@@ -15,6 +15,9 @@ BEGIN {
 		or die "# Conform::Core::IO::File not available\n";
 }
 
+use Conform::Logger;
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
 my $dirname   = File::Temp::tempdir(CLEANUP => 1);
 my $filename1 = File::Spec->catfile($dirname, 'file1');
 my $filename2 = File::Spec->catfile($dirname, 'file2');

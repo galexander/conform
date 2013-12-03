@@ -17,6 +17,9 @@ BEGIN {
 		or die "# Error importing Conform::Core::IO::File";
 }
 
+use Conform::Logger;
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
+
 
 my $have_rcs = find_command 'ci' && find_command 'co';
 

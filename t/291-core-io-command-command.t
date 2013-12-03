@@ -11,7 +11,8 @@ use Test::Trap;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
-use Conform::Logger;
+use Conform::Logger qw(warn);
+Conform::Logger->configure('stderr' => { formatter => { default => '%m' } });
 
 
 BEGIN {
