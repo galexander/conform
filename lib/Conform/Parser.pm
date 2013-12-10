@@ -1,6 +1,10 @@
 package Conform::Parser;
 use Moose;
 use Parse::RecDescent;
+use Data::Dumper;
+
+#$::RD_HINT = 1;
+$::RD_TRACE = 1;
 
 my $grammar = q{
     program:
@@ -11,7 +15,7 @@ my $grammar = q{
         { [ $thisline, 'site', { name => $item[2], meta => $item[3], data => $item[5] } ] }
 
     name:
-        /[\w.\/=-]+/ | /"[\w.\/ =-]+"/
+        /[\w.\/-]+/ | /"[\w.\/ =-]+"/
 
     metadata:
         name ':' name arglist(?)
@@ -24,6 +28,9 @@ my $grammar = q{
     arg:
         /\w+/ '=' /\w+/
         { $return = { $item[1], $item[3] } }
+
+    comma:
+        /,/
 
     node:
         nodetype name metadata(s? /,/) text
@@ -44,7 +51,7 @@ my $grammar = q{
         { $item[1] }
 
     action:
-        /\w+/ /\w+/ value
+        /\w+/ name value
         { [ $thisline, 'action', { name => $item[1], id => $item[2], data => $item[3] }  ] }
 
     block:
@@ -52,23 +59,23 @@ my $grammar = q{
         { [ $thisline, 'block',  { name => $item[1], data => $item[2] } ] }
 
     value:
-        hash | list | simple
+        hash | list | scalar
 
-    simple:
-        /"[^"]+"/ | /\w+/
-        { [ 'scalar', $item[1] ] }
+    scalar:
+        name
+        { [ $thisline, 'scalar', $item[1] ] }
 
     hash:
         '{' hashkv(s? /,/) '}'
-        { [ 'hash',  $item[2] ] }
+        { [ $thisline, 'hash',  $item[2] ] }
 
     hashkv:
-        simple '=>' value
+        scalar '=>' value
         { [ $item[1] => $item[3] ] }
 
     list:
         '[' value(s? /,/) ']'
-        { [ 'list', $item[2] ] }
+        { [ $thisline, 'list', $item[2] ] }
 
 
     eofile:
@@ -109,60 +116,225 @@ sub parse {
     my $parser = Parse::RecDescent->new($self->grammar)
                     or die "bad grammar";
 
-    my $tree = $parser->program($text);
+    my $tree = $parser->program($text)
+            or die "error parse error";
+
+print Dumper($tree);
+
     $self->process($tree);
+}
+
+sub parser {
+    my $self = shift;
+    return Parse::RecDescent->new($self->grammar)
+                    or die "bad grammar";
+}
+
+sub _block {
+            # line    , type      , data
+    return ($_[0]->[0], $_[0]->[1], $_[0]->[2]);
+}
+
+sub _normalise($) {
+    $_[0] =~ s/^(['"])// && $_[0] =~ s/$1$//;
 }
 
 sub process {
     my $self = shift;
     my $tree = shift;
-    my @processed;
+    my @sites = ();
     for my $block (@$tree) {
-        my ($line, $type, $data) = ($block->[0], $block->[1], $block->[2]);
+        my ($line, $type, $section) = _block $block;
         if ($type eq 'site') {
-            push @processed, $self->process_site($data);
-        }
-        if ($type eq 'class') {
-            push @processed, $self->process_site_node($block, $data);
-        }
-        if ($type eq 'machine') {
-            push @processed, $self->process_site_node($block, $data);
+            push @sites, $self->process_site($section);
         }
     }
-    return \@processed;
+    return { sites => \@sites };
 }
 
 sub process_site {
-    my $self  = shift;
-    my $block = shift;
-    my $site;
+    my $self     = shift;
+    my $block    = shift;
+
     my $name = $block->{name};
-    my $meta = $block->{meta} || [];
+    my $meta = $block->{meta};
+
+    _normalise $name;
+
+    my %site = ();
+    my @vars     = ();
+    my @classes  = ();
+    my @machines = ();
+
+    $site{'.name'} = $name;
+    $site{'.meta'} = $meta;
+
+    sub _add_node {
+        my ($site, $node) = @_;
+        my $node_name = $node->{'.name'};
+        my $site_name = $site->{'.name'};
+        my $existing = $site->{$node_name};
+        if ($existing) {
+            warn "node with $node_name already defined for $site_name @ $existing->{'.meta'}{line}";
+        } else {
+            $site->{$node_name} = $node;
+        }
+    }
+
+    sub _add_var {
+        my ($site, $var) = @_;
+        my $var_name  = $var->{'.name'};
+        my $site_name = $site->{'.name'};
+        my $existing = $site->{".${var_name}"};
+        if ($existing) {
+            warn "var with $var_name already defined for $site_name @ $existing->{'.meta'}{line}";
+        } else {
+            $site->{".${var_name}"} = $var;
+        }
+    }
+
     my $data = $block->{data} || [];
+    for my $block (@$data) {
+        my ($line, $type, $section) = _block $block;
+        if ($type eq 'class') {
+            my $class = $self->process_site_node($section, $block);
+            $class->{".type"} = 'class';
+            _add_node \%site, $class;
+        }
+        if ($type eq 'machine') {
+            my $machine = $self->process_site_node($section, $block);
+            $machine->{".type"} = 'machine';
+            _add_node \%site, $machine;
+        }
+        if ($type eq 'var') {
+            my $var = $self->process_site_var($section, $block);
+            _add_var \%site, $var;
+        }
+    }
 
-    my $nodes = $self->process($data);
-
-    return  { name => $name, meta => $meta, nodes => $nodes };
+    return \%site;
 }
 
 sub process_site_node {
-    my $self  = shift;
+    my $self   = shift;
+    my $block  = shift;
     my $parent = shift;
-    my ($line, $type, $block) = ($parent->[0], $parent->[1], $parent->[2]);
+
     my $name = $block->{name};
     my $meta = $block->{meta};
+
+    _normalise $name;
+
+    my %node = ();
+    $node{'.name'} = $name;
+    $node{'.meta'} = $meta;
+
+
+    my @blocks  = ();
+    my @actions = ();
+    my @vars    = ();
+
     my $data = $block->{data};
+    my $tree = $self->parser->nodedef($data)
+                    or die "error parsing node ($name)";
 
-    my $parser = Parse::RecDescent->new($grammar)
-                    or die "grammar error";
+    for my $block (@$tree) {
+        my ($line, $type, $section) = _block $block;
+        my $entry;
+        if ($type eq 'action') {
+            my $entry = $self->process_site_action($section, $block);
+            push @actions, $entry;
+        }
+        if ($type eq 'block') {
+            my $entry = $self->process_site_block($section, $block);
+            push @blocks, $entry;
+        }
+    }
 
-    my $tree = $parser->nodedef($data)
-                    or die "error parsing node($name) @ line $line";
+    $node{action} = \@actions;
+    $node{blocks} = \@blocks;
 
-
-    return { type => $type, name => $name, meta => $meta, data => $tree };
-    
+    return \%node;
 }
 
+sub _process_scalar;
+sub _process_list;
+sub _process_hash;
+sub _process_value;
+sub _process_value {
+    my $block = shift;
+    my ($line, $type, $section) = _block $block;
+    if ($type eq 'list') {
+        return _process_list $section;
+    }
+    if ($type eq 'hash') {
+        return _process_hash $section;
+    }
+    if ($type eq 'scalar') {
+        if ($section =~ s/^:// && $section eq 'undef') {
+            return undef;
+        } else {
+            return $section;
+        }
+    }
+}
+
+sub _process_list {
+    my $block = shift;
+    my @list = ();
+    for (@$block) {
+        push @list, _process_value $_;
+    }
+    return \@list;
+}
+
+sub _process_hash {
+    my $block = shift;
+    my @list = ();
+    for (@$block) {
+        push @list, @{_process_list ($_)};
+    }
+    return  {@list};
+}
+
+sub process_site_action {
+    my $self  = shift;
+    my $block = shift;
+
+    my %action = ();
+    my $name = $block->{name};
+    my $meta = $block->{meta};
+    my $id   = $block->{id};
+
+    _normalise $name;
+    _normalise $id;
+
+    $action{'.name'} = $name;
+    $action{'.id'}   = $id;
+
+    my $value = _process_value $block->{data};
+    $action{'.value'} = $value;
+
+    return \%action;
+}
+
+sub process_site_block {
+    my $self  = shift;
+    my $block = shift;
+
+    my %block = ();
+    my $name = $block->{name};
+    my $meta = $block->{meta};
+
+    _normalise $name;
+
+    $block{'.name'} = $name;
+
+    my $value = _process_value $block->{data};
+
+    $block{'.value'} = $value;
+
+    return \%block;
+}
 
 1;
