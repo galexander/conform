@@ -4,14 +4,25 @@ use Parse::RecDescent;
 use Data::Dumper;
 
 #$::RD_HINT = 1;
-$::RD_TRACE = 1;
+#$::RD_TRACE = 1;
 
-my $grammar = q{
+$::RD_AUTOACTION = q{ $item[1] };
+
+sub BUILD {
+    my $self = shift;
+    $self->parser(new Parse::RecDescent($self->grammar));
+    $self;
+}
+
+has 'grammar' => (
+    is => 'rw',
+    isa => 'Str',
+    default => <<'EOGRAMMAR'
     program:
         site(s?)
 
     site:
-        'site' name metadata(s? /,/) '{' node(s? /,/) '}'
+        'site' name metadata(s? /,/) '{' <leftop: node /,/ node>(s?) '}'
         { [ $thisline, 'site', { name => $item[2], meta => $item[3], data => $item[5] } ] }
 
     name:
@@ -61,8 +72,17 @@ my $grammar = q{
     value:
         hash | list | scalar
 
+    unquoted:
+        /[\w\.\-\\\/:]+/
+
+    quoted:
+        /(["']).+?\1/
+
+    string:
+        quoted | unquoted
+
     scalar:
-        name
+        string
         { [ $thisline, 'scalar', $item[1] ] }
 
     hash:
@@ -80,19 +100,13 @@ my $grammar = q{
 
     eofile:
         /^\Z/
-};
+EOGRAMMAR
 
-$::RD_AUTOACTION = q{ $item[1] };
+);
 
-sub BUILD {
-    my $self = shift;
-    $self->grammar($grammar);
-    $self;
-}
-
-has 'grammar' => (
+has 'parser' => (
     is => 'rw',
-    isa => 'Str',
+    isa => 'Parse::RecDescent',
 );
 
 sub parse_file {
@@ -113,21 +127,13 @@ sub parse {
     my $self = shift;
     my $text = shift;
 
-    my $parser = Parse::RecDescent->new($self->grammar)
+    my $parser = $self->parser
                     or die "bad grammar";
 
     my $tree = $parser->program($text)
             or die "error parse error";
 
-print Dumper($tree);
-
     $self->process($tree);
-}
-
-sub parser {
-    my $self = shift;
-    return Parse::RecDescent->new($self->grammar)
-                    or die "bad grammar";
 }
 
 sub _block {
@@ -271,11 +277,11 @@ sub _process_value {
         return _process_hash $section;
     }
     if ($type eq 'scalar') {
-        if ($section =~ s/^:// && $section eq 'undef') {
-            return undef;
-        } else {
-            return $section;
+        if ($section =~ s/^://) {
+            return undef if $section eq 'undef';
         }
+        _normalise $section;
+        return $section;
     }
 }
 
@@ -335,6 +341,12 @@ sub process_site_block {
     $block{'.value'} = $value;
 
     return \%block;
+}
+
+sub xform {
+    my $self  = shift;
+    my $block = shift;
+    return _process_value $block;
 }
 
 1;
