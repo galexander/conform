@@ -2,7 +2,7 @@
 
 use strict;
 use FindBin;
-use Test::More tests => 50;
+use Test::More tests => 58;
 use Test::Trap;
 use Data::Dumper;
 
@@ -98,7 +98,6 @@ is $scalar->[2], '::undef', 'parse escaped undef';
 $scalar = $parser->xform($scalar);
 is $scalar, ':undef', 'xform escaped undef scalar';
 
-
 my $list;
 
 $list = $parser->parser->list(q{[1,2,a,b,"c"]});
@@ -115,6 +114,11 @@ $list = $parser->parser->list(q{[1,"quoted list element", 3]});
 is $list->[1], 'list', 'parse quoted element list type';
 $list = $parser->xform($list);
 is_deeply $list, [1,'quoted list element', 3], 'quoted element list xform';
+
+$list = $parser->parser->list(q{[1,2,3],});
+is $list->[1], 'list', 'parse delimitted list type';
+$list = $parser->xform($list);
+is_deeply $list, [1,2,3], 'parse delimited list';
 
 
 my $hash;
@@ -134,12 +138,51 @@ is $hash->[1], 'hash', 'parse hash type with "quoted value"';
 $hash = $parser->xform($hash);
 is_deeply $hash, { "quoted key" => 'quoted value' }, 'hash with quoted value xform';
 
-
 $hash = $parser->parser->hash(q'{ key => value, list => [1,2,3, { a => "b" }, [4,5] ] }');
 is $hash->[1], 'hash', 'parse complex hash type';
 $hash = $parser->xform($hash);
 is_deeply $hash, { key => 'value', list => [1,2,3, { a => "b" }, [4,5]] }, 'hash xform';
 
+$hash = $parser->parser->hash(q"{ key => value },");
+is $hash->[1], 'hash', 'parse delimitted hash type';
+$hash = $parser->xform($hash);
+is_deeply $hash, { key => 'value' }, 'delimitted hash xform';
+
+
+my $action;
+
+$action = q'
+    File_install /file/dst {
+        src => "/file/src",
+        mode => 755
+    },
+';
+
+my $tree = $parser->parser->action($action);
+ok $tree, 'parse action';
+is $tree->[1], 'action', 'parse action type';
+$action = $parser->process_site_node_action($tree->[2]);
+ok $action, 'processed action';
+is_deeply $action,
+          { '.id' => '/file/dst', '.name' => 'File_install', '.value' => { 'mode' => '755',  'src' => '/file/src' } },
+          'action processed correctly';
+
+my $block;
+
+$block = q"
+    Resolver {
+        search_domain => ['com', 'example.com']
+    },
+";
+
+$tree = $parser->parser->block($block);
+ok $tree, 'parse block';
+is $tree->[1], 'block', 'parse block type';
+$block = $parser->process_site_node_block($tree->[2]);
+ok $block, 'processed block';
+is_deeply $block,
+          { '.name' => 'Resolver', '.value' => { search_domain => ['com', 'example.com'] } },
+          'block processed correctly';
 
 
 1;
