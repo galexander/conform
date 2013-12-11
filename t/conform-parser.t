@@ -2,7 +2,7 @@
 
 use strict;
 use FindBin;
-use Test::More tests => 65;
+use Test::More tests => 75;
 use Test::Trap;
 use Data::Dumper;
 
@@ -161,7 +161,7 @@ $action = q'
 my $tree = $parser->parser->action($action);
 ok $tree, 'parse action';
 is $tree->[1], 'action', 'parse action type';
-$action = $parser->process_site_node_action($tree->[2]);
+$action = $parser->process_node_action($tree->[2]);
 ok $action, 'processed action';
 is_deeply $action,
           { '.id' => '/file/dst', '.name' => 'File_install', '.value' => { 'mode' => '755',  'src' => '/file/src' } },
@@ -178,11 +178,77 @@ $block = q"
 $tree = $parser->parser->block($block);
 ok $tree, 'parse block';
 is $tree->[1], 'block', 'parse block type';
-$block = $parser->process_site_node_block($tree->[2]);
+$block = $parser->process_node_block($tree->[2]);
 ok $block, 'processed block';
 is_deeply $block,
           { '.name' => 'Resolver', '.value' => { search_domain => ['com', 'example.com'] } },
           'block processed correctly';
+
+my $class = q|
+    class base {
+        File_install "/tmp/foo" {
+            src => "/file/src"
+
+        },
+        Text_install "/tmp/bar" {
+            src => "some text\n",
+            attr => {
+                owner => root,
+            },
+
+        },
+        Resolver {
+            search => [ 'com.example' ],
+        },
+        Env [ 'prod', 'test' ],
+    }
+|;
+
+$tree = $parser->parser->node($class);
+ok $tree, 'parse class';
+is $tree->[1], 'class', 'parse class type';
+$class = $parser->process_node($tree->[2]);
+ok $class, 'process node';
+is $class->{'.name'}, 'base', 'class name set';
+ok $class->{'.meta'} && ref $class->{'.meta'} eq 'ARRAY', 'class meta type';
+is_deeply $class->{'.meta'}, [], 'class meta set';
+ok $class->{'.actions'} && ref $class->{'.actions'} eq 'ARRAY', 'class actions type';
+is_deeply $class->{'.actions'}, [
+    {
+        '.value' => {
+            'src' => '/file/src'
+        },
+        '.name' => 'File_install',
+        '.id' => '/tmp/foo'
+     },
+     {
+       '.value' => {
+            'src' => 'some text\\n',
+            'attr' => {
+                'owner' => 'root'
+            }
+        },
+       '.name' => 'Text_install',
+       '.id' => '/tmp/bar'
+     }
+   ], 'class actions';
+
+ok $class->{'.blocks'} && ref $class->{'.blocks'} eq 'ARRAY', 'class blocks type';
+is_deeply $class->{'.blocks'}, [
+     {
+       '.value' => { 'search' => [ 'com.example' ] },
+       '.name' => 'Resolver'
+     },
+     {
+       '.value' => [ 'prod', 'test' ],
+       '.name' => 'Env'
+     }
+   ], 'class blocks';
+
+
+
+
+
 
 
 1;

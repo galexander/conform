@@ -5,6 +5,8 @@ use Data::Dumper;
 
 #$::RD_HINT = 1;
 #$::RD_TRACE = 1;
+$::RD_ERRORS = 1;
+#$::RD_WARN = 1;
 
 $::RD_AUTOACTION = q{ $item[1] };
 
@@ -54,7 +56,8 @@ has 'grammar' => (
         { extract_bracketed($text, '{ }') }
 
     nodedef:
-        '{' nodeconf(s? /,/) '}'
+        #'{' nodeconf(s? /,/) '}'
+        '{' <leftop: nodeconf /,/ nodeconf>(s?) comma(?) '}'
         { $item[2] }
 
     nodeconf:
@@ -86,7 +89,8 @@ has 'grammar' => (
         { [ $thisline, 'scalar', $item[1] ] }
 
     hash:
-        '{' hashkv(s? /,/) '}'
+        #'{' hashkv(s? /,/) '}'
+        '{' <leftop: hashkv /,/ hashkv>(s?) comma(?) '}'
         { [ $thisline, 'hash',  $item[2] ] }
 
     hashkv:
@@ -94,7 +98,8 @@ has 'grammar' => (
         { [ $item[1] => $item[3] ] }
 
     list:
-        '[' value(s? /,/) ']'
+        #'[' value(s? /,/) ']'
+        '[' <leftop: value /,/ value>(s?) comma(?) ']'
         { [ $thisline, 'list', $item[2] ] }
 
 
@@ -175,7 +180,7 @@ sub process_site {
     $site{'.name'} = $name;
     $site{'.meta'} = $meta;
 
-    sub _add_node {
+    sub _add_site_node {
         my ($site, $node) = @_;
         my $node_name = $node->{'.name'};
         my $site_name = $site->{'.name'};
@@ -187,7 +192,7 @@ sub process_site {
         }
     }
 
-    sub _add_var {
+    sub _add_site_var {
         my ($site, $var) = @_;
         my $var_name  = $var->{'.name'};
         my $site_name = $site->{'.name'};
@@ -203,25 +208,25 @@ sub process_site {
     for my $block (@$data) {
         my ($line, $type, $section) = _block $block;
         if ($type eq 'class') {
-            my $class = $self->process_site_node($section, $block);
+            my $class = $self->process_node($section, $block);
             $class->{".type"} = 'class';
-            _add_node \%site, $class;
+            _add_site_node \%site, $class;
         }
         if ($type eq 'machine') {
-            my $machine = $self->process_site_node($section, $block);
+            my $machine = $self->process_node($section, $block);
             $machine->{".type"} = 'machine';
-            _add_node \%site, $machine;
+            _add_site_node \%site, $machine;
         }
         if ($type eq 'var') {
             my $var = $self->process_site_var($section, $block);
-            _add_var \%site, $var;
+            _add_site_var \%site, $var;
         }
     }
 
     return \%site;
 }
 
-sub process_site_node {
+sub process_node {
     my $self   = shift;
     my $block  = shift;
     my $parent = shift;
@@ -248,17 +253,17 @@ sub process_site_node {
         my ($line, $type, $section) = _block $block;
         my $entry;
         if ($type eq 'action') {
-            my $entry = $self->process_site_action($section, $block);
+            my $entry = $self->process_node_action($section, $block);
             push @actions, $entry;
         }
         if ($type eq 'block') {
-            my $entry = $self->process_site_block($section, $block);
+            my $entry = $self->process_node_block($section, $block);
             push @blocks, $entry;
         }
     }
 
-    $node{action} = \@actions;
-    $node{blocks} = \@blocks;
+    $node{'.actions'} = \@actions;
+    $node{'.blocks'} = \@blocks;
 
     return \%node;
 }
@@ -303,7 +308,7 @@ sub _process_hash {
     return  {@list};
 }
 
-sub process_site_action {
+sub process_node_action {
     my $self  = shift;
     my $block = shift;
 
@@ -324,7 +329,7 @@ sub process_site_action {
     return \%action;
 }
 
-sub process_site_block {
+sub process_node_block {
     my $self  = shift;
     my $block = shift;
 
