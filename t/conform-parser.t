@@ -2,7 +2,7 @@
 
 use strict;
 use FindBin;
-use Test::More tests => 58;
+use Test::More tests => 65;
 use Test::Trap;
 use Data::Dumper;
 
