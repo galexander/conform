@@ -2,7 +2,7 @@
 
 use strict;
 use FindBin;
-use Test::More tests => 75;
+use Test::More tests => 85;
 use Test::Trap;
 use Data::Dumper;
 
@@ -245,10 +245,68 @@ is_deeply $class->{'.blocks'}, [
      }
    ], 'class blocks';
 
+my $site = q|
+site "test" {
+    class base {
+        File_install "/tmp/foo" {
+            src => "/file/src"
 
+        },
+        Text_install "/tmp/bar" {
+            src => "some text\n",
+            attr => {
+                owner => root,
+            },
 
+        },
+        Resolver {
+            search => [ 'com.example' ],
+        },
+        Env [ 'prod', 'test' ],
+    }
+}|;
 
+$tree = $parser->parser->site($site);
+ok $tree, 'parse site';
+is $tree->[1], 'site', 'parse site type';
+$site = $parser->process_site($tree->[2]);
+ok $site, 'process site';
+is $site->{'.name'}, 'test', 'site name set';
+ok $site->{'.meta'} && ref $site->{'.meta'} eq 'ARRAY', 'site meta type';
+is_deeply $site->{'.meta'}, [], 'site meta set';
+$class = $site->{'base'};
+ok $class->{'.actions'} && ref $class->{'.actions'} eq 'ARRAY', 'site class actions type';
+is_deeply $class->{'.actions'}, [
+    {
+        '.value' => {
+            'src' => '/file/src'
+        },
+        '.name' => 'File_install',
+        '.id' => '/tmp/foo'
+     },
+     {
+       '.value' => {
+            'src' => 'some text\\n',
+            'attr' => {
+                'owner' => 'root'
+            }
+        },
+       '.name' => 'Text_install',
+       '.id' => '/tmp/bar'
+     }
+   ], 'site class actions';
 
+ok $class->{'.blocks'} && ref $class->{'.blocks'} eq 'ARRAY', 'site class blocks type';
+is_deeply $class->{'.blocks'}, [
+     {
+       '.value' => { 'search' => [ 'com.example' ] },
+       '.name' => 'Resolver'
+     },
+     {
+       '.value' => [ 'prod', 'test' ],
+       '.name' => 'Env'
+     }
+   ], 'site class blocks';
 
 
 1;
