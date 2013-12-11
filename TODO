@@ -1,10 +1,8 @@
+ - Split parsing unit testss
  - Runtime plugin filtering
     - plugins should be able to specify versions and types of
       runtimes they support
  - Runtime auto detection
- - Logging vs Debug
- - Logger - check that log4perl delegate has the correct caller_depth
- - Logger - warn/die handlers
  - Configuration File Loading
  - Safe mode
  - Task directives - where to wedge them in?
